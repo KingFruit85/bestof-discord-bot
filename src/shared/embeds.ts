@@ -1,0 +1,138 @@
+import {
+    EmbedBuilder,
+    User,
+    Message,
+    Colors,
+    AttachmentBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ActionRowBuilder,
+} from "discord.js";
+
+export class EmbedHelper {
+    private static _handleMessageImage(
+        message: Message,
+        embed: EmbedBuilder,
+        files: AttachmentBuilder[] = [],
+        isRef = false
+    ): AttachmentBuilder[] {
+        const attachmentImage = message.attachments.find(a =>
+            a.contentType?.startsWith("image/")
+        );
+        const embedImageUrl =
+            message.embeds.find(e => e.data.image?.url)?.data.image?.url ?? null;
+
+        if (attachmentImage) {
+            const filename = attachmentImage.name ?? `${isRef ? 'ref-' : ''}image.png`;
+            const attachment = new AttachmentBuilder(attachmentImage.url).setName(filename);
+
+            embed.setImage(`attachment://${filename}`);
+            return [...files, attachment];
+        }
+
+        if (embedImageUrl) {
+            embed.setImage(embedImageUrl);
+        }
+
+        return files;
+    }
+
+    public static async createNominationEmbeds(
+        user: User,
+        message: Message
+    ): Promise<{
+        embeds: EmbedBuilder[];
+        files?: AttachmentBuilder[];
+    }> {
+        const embeds: EmbedBuilder[] = [];
+        let files: AttachmentBuilder[] | undefined;
+
+        // ---------------------------------------------------------------------
+        // 1) REFERENCED MESSAGE EMBED (if the nominated message is a reply)
+        // ---------------------------------------------------------------------
+        let reference: Message | null = null;
+
+        try {
+            if (message.reference && message.reference.messageId) {
+                reference = await message.fetchReference().catch(() => null);
+            }
+        } catch {
+            reference = null;
+        }
+
+        if (reference) {
+            const refEmbed = new EmbedBuilder()
+                .setColor(Colors.Blurple)
+                .setAuthor({
+                    name: reference.author.displayName,
+                    iconURL: reference.author.displayAvatarURL()
+                })
+                .setTimestamp(reference.createdTimestamp);
+
+            if (reference.content) {
+                refEmbed.setDescription(reference.content.slice(0, 4096));
+            }
+
+            files = this._handleMessageImage(reference, refEmbed, files, true);
+            embeds.push(refEmbed);
+        }
+
+        // ---------------------------------------------------------------------
+        // 2) NOMINATED MESSAGE
+        // ---------------------------------------------------------------------
+        const lead = new EmbedBuilder()
+            .setColor(Colors.Gold)
+            .setAuthor({
+                name: message.author.displayName,
+                iconURL: message.author.displayAvatarURL()
+            })
+            .setTimestamp(message.createdTimestamp);
+
+        if (message.content) {
+            lead.setDescription(message.content.slice(0, 4096));
+        }
+
+        // ---------------------------------------------------------------------
+        // 3) MAIN MESSAGE IMAGE (attach or remote)
+        // ---------------------------------------------------------------------
+        files = this._handleMessageImage(message, lead, files);
+
+        embeds.push(lead);
+
+
+        // ---------------------------------------------------------------------
+        // 🔵 4) TAIL EMBED (Nominator + Author)
+        // ---------------------------------------------------------------------
+        const tail = new EmbedBuilder()
+            .addFields(
+                {
+                    name: "Nominated By",
+                    value: `${user}`,
+                    inline: true
+                },
+                {
+                    name: "Author",
+                    value: `${message.author}`,
+                    inline: true
+                },
+                {
+                    name: "Up votes",
+                    value: "1",
+                },
+                {
+                    name: "Down votes",
+                    value: "0",
+                },
+                {
+                    name: "🔗 Message Link",
+                    value: `[Jump to message](${message.url})`
+                }
+            )
+            .setThumbnail(message.author.displayAvatarURL())
+            .setTimestamp();
+
+        embeds.push(tail);
+
+        return { embeds, files: files ?? []};
+    }
+}
