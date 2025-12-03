@@ -4,9 +4,6 @@ import {
     Message,
     Colors,
     AttachmentBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    ActionRowBuilder,
 } from "discord.js";
 
 export class EmbedHelper {
@@ -101,7 +98,7 @@ export class EmbedHelper {
 
 
         // ---------------------------------------------------------------------
-        // 🔵 4) TAIL EMBED (Nominator + Author)
+        // 4) TAIL EMBED (Nominator + Author) THIS MUST BE LAST
         // ---------------------------------------------------------------------
         const tail = new EmbedBuilder()
             .addFields(
@@ -128,11 +125,29 @@ export class EmbedHelper {
                     value: `[Jump to message](${message.url})`
                 }
             )
-            .setThumbnail(message.author.displayAvatarURL())
-            .setTimestamp();
+            .setThumbnail(message.author.displayAvatarURL());
 
         embeds.push(tail);
 
         return { embeds, files: files ?? []};
+    }
+
+    public static getUpdatedTailEmbed(
+      tailEmbed: EmbedBuilder,
+      upvotes: number,
+      downvotes: number
+    ): EmbedBuilder {
+      const updatedFields = tailEmbed.data.fields?.map((field) => {
+        if (field.name === "Up votes") {
+          return { ...field, value: upvotes.toString() };
+        }
+        if (field.name === "Down votes") {
+          return { ...field, value: downvotes.toString() };
+        }
+        return field;
+      });
+
+      tailEmbed.setFields(updatedFields || []);
+      return tailEmbed;
     }
 }

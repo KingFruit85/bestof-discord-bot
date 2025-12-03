@@ -5,6 +5,7 @@ export interface Nomination {
   guild_id: string;
   message_link: string;
   nominator: string;
+  nomination_message_id?: string | null;
   created_at: Date;
 }
 
@@ -24,8 +25,8 @@ export async function insertNomination(
   nominator: string
 ): Promise<Nomination> {
   const result = await query<Nomination>(
-    `INSERT INTO nominations (guild_id, message_link, nominator) 
-     VALUES ($1, $2, $3) 
+    `INSERT INTO nominations (guild_id, message_link, nominator)
+     VALUES ($1, $2, $3)
      RETURNING *`,
     [guildId, messageLink, nominator]
   );
@@ -33,7 +34,7 @@ export async function insertNomination(
   if (result.rows.length === 0 || result.rows[0] == undefined) {
     throw new Error('Failed to insert nomination');
   }
-  
+
   return result.rows[0];
 }
 
@@ -47,8 +48,35 @@ export async function getNominationByLink(
     'SELECT * FROM nominations WHERE message_link = $1',
     [messageLink]
   );
-  
+
   return result.rows[0] || null;
+}
+
+/**
+ * Get a nomination by ID
+ */
+export async function getNominationById(
+  id: number
+): Promise<Nomination | null> {
+  const result = await query<Nomination>(
+    'SELECT * FROM nominations WHERE id = $1',
+    [id]
+  );
+
+  return result.rows[0] || null;
+}
+
+/**
+ * Update the nomination_message_id for a nomination
+ */
+export async function updateNominationMessageId(
+  nominationId: number,
+  messageId: string
+): Promise<void> {
+  await query(
+    'UPDATE nominations SET nomination_message_id = $1 WHERE id = $2',
+    [messageId, nominationId]
+  );
 }
 
 /**
@@ -60,7 +88,7 @@ export async function getNominationsWithVotes(
   endDate?: Date
 ): Promise<NominationWithVotes[]> {
   let queryText = `
-    SELECT 
+    SELECT
       n.*,
       COALESCE(SUM(v.vote_value), 0)::int as total_score,
       COALESCE(COUNT(v.id), 0)::int as vote_count,
@@ -70,21 +98,21 @@ export async function getNominationsWithVotes(
     LEFT JOIN votes v ON n.id = v.nomination_id
     WHERE n.guild_id = $1
   `;
-  
+
   const params: any[] = [guildId];
-  
+
   if (startDate) {
     params.push(startDate);
     queryText += ` AND n.created_at >= $${params.length}`;
   }
-  
+
   if (endDate) {
     params.push(endDate);
     queryText += ` AND n.created_at <= $${params.length}`;
   }
-  
+
   queryText += ' GROUP BY n.id ORDER BY total_score DESC, n.created_at DESC';
-  
+
   const result = await query<NominationWithVotes>(queryText, params);
   return result.rows;
 }
@@ -96,7 +124,7 @@ export async function getRandomUnpostedNomination(
   guildId: string
 ): Promise<Nomination | null> {
   const result = await query<Nomination>(
-    `SELECT n.* 
+    `SELECT n.*
      FROM nominations n
      LEFT JOIN schedule_history sh ON n.message_link = sh.message_link
      WHERE n.guild_id = $1 AND sh.id IS NULL
@@ -104,7 +132,7 @@ export async function getRandomUnpostedNomination(
      LIMIT 1`,
     [guildId]
   );
-  
+
   return result.rows[0] || null;
 }
 

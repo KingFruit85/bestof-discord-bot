@@ -4,11 +4,13 @@ CREATE TABLE IF NOT EXISTS nominations (
     guild_id VARCHAR(20) NOT NULL,
     message_link TEXT NOT NULL UNIQUE,
     nominator VARCHAR(20) NOT NULL,
+    nomination_message_id VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_nominations_guild_id ON nominations(guild_id);
 CREATE INDEX IF NOT EXISTS idx_nominations_created_at ON nominations(created_at);
+CREATE INDEX IF NOT EXISTS idx_nominations_nomination_message_id ON nominations(nomination_message_id);
 
 -- Votes table
 CREATE TABLE IF NOT EXISTS votes (

@@ -49,7 +49,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (action === 'vote') {
 
-        await votingService.addOrUpdateVote(Number(nominationId), userId, voteType as 'up' | 'down');
+        await votingService.addOrUpdateVote(interaction, Number(nominationId), userId, voteType as 'up' | 'down');
 
         await interaction.reply({ content: `Your vote has been recorded, thanks!`, ephemeral: true });
       }
