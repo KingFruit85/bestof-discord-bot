@@ -118,25 +118,6 @@ export async function getNominationsWithVotes(
 }
 
 /**
- * Get a random nomination that hasn't been posted in schedule history
- */
-export async function getRandomUnpostedNomination(
-  guildId: string
-): Promise<Nomination | null> {
-  const result = await query<Nomination>(
-    `SELECT n.*
-     FROM nominations n
-     LEFT JOIN schedule_history sh ON n.message_link = sh.message_link
-     WHERE n.guild_id = $1 AND sh.id IS NULL
-     ORDER BY RANDOM()
-     LIMIT 1`,
-    [guildId]
-  );
-
-  return result.rows[0] || null;
-}
-
-/**
  * Delete a nomination
  */
 export async function deleteNomination(id: number): Promise<void> {

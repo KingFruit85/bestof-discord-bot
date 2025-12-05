@@ -103,22 +103,14 @@ export class EmbedHelper {
         const tail = new EmbedBuilder()
             .addFields(
                 {
-                    name: "Nominated By",
-                    value: `${user}`,
-                    inline: true
-                },
-                {
-                    name: "Author",
-                    value: `${message.author}`,
-                    inline: true
-                },
-                {
                     name: "Up votes",
                     value: "1",
+                    inline: true
                 },
                 {
                     name: "Down votes",
                     value: "0",
+                    inline: true
                 },
                 {
                     name: "🔗 Message Link",

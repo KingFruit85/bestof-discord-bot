@@ -63,11 +63,4 @@ export class NominationService {
   ) {
     return await queries.getNominationsWithVotes(guildId, startDate, endDate);
   }
-
-  /**
-   * Get a random nomination for posting
-   */
-  async getRandomNomination(guildId: string) {
-    return await queries.getRandomUnpostedNomination(guildId);
-  }
 }

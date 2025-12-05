@@ -15,7 +15,9 @@
     "#shared": "./src/shared/index.ts",
     "#voting": "./src/features/voting/index.ts",
     "#nominations": "./src/features/nominations/index.ts",
-    "#config": "./src/config/index.ts"
+    "#config": "./src/config/index.ts",
+    "#scheduling": "./src/features/scheduling/index.ts",
+    "#guild-config": "./src/features/guild_config/index.ts"
   },
   "keywords": [],
   "author": "",
