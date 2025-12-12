@@ -1,4 +1,4 @@
-import { query } from '../../config/database.js';
+import { query } from "#config";
 
 export interface GuildConfig {
   guild_id: string;
@@ -35,6 +35,26 @@ export async function upsertGuildConfig(
   guildId: string,
   config: Partial<Omit<GuildConfig, 'guild_id' | 'created_at' | 'updated_at'>>
 ): Promise<GuildConfig> {
+  if (config.random_post_schedule) {
+    const now = new Date();
+    let nextPostTime = new Date();
+    switch (config.random_post_schedule) {
+      case 'daily':
+        nextPostTime.setMinutes(now.getDate() + 1);
+        break;
+      case 'every_other_day':
+        nextPostTime.setDate(now.getDate() + 2);
+        break;
+      case 'weekly':
+        nextPostTime.setDate(now.getDate() + 7);
+        break;
+    }
+    nextPostTime.setHours(9, 30, 0, 0);
+    config.next_random_post = nextPostTime;
+  } else if (config.random_post_schedule === null) {
+    config.next_random_post = null;
+  }
+
   const existingConfig = await getGuildConfig(guildId);
 
   let queryString: string;

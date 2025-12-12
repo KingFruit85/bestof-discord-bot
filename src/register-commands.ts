@@ -2,6 +2,7 @@ import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v10';
 import { config } from 'dotenv';
 import { addNominationCommand } from './features/nominations/commands.js';
+import { CONFIGURE_BOT_COMMAND } from './features/guild_config/commands.js';
 
 config(); // Load .env file
 
@@ -12,7 +13,7 @@ if (!token || !clientId) {
   throw new Error('DISCORD_TOKEN and CLIENT_ID must be provided in .env');
 }
 
-const commands = [addNominationCommand.toJSON()];
+const commands = [addNominationCommand.toJSON(), CONFIGURE_BOT_COMMAND.toJSON()];
 
 const rest = new REST({ version: '10' }).setToken(token);
 

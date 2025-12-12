@@ -1,10 +1,22 @@
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import { config } from 'dotenv';
-import { testConnection, closePool } from './config/database.js';
-import { NominationService } from './features/nominations/service.js';
-import { handleAddNomination } from './features/nominations/handlers.js';
 import { VotingService } from '#voting';
+import {
+  handleConfigureBotCommand,
+  handleNominationChannelChange,
+  handleRandomPostScheduleChange,
+  handleAllowCrosspostsChange,
+  handleEnableMonthlyRecapChange,
+  NOMINATION_CHANNEL_SELECT_ID,
+  RANDOM_POST_SCHEDULE_SELECT_ID,
+  ALLOW_CROSSPOSTS_SELECT_ID,
+  ENABLE_MONTHLY_RECAP_SELECT_ID,
+} from './features/guild_config/handlers.js';
+import { closePool, testConnection } from '#config';
+import { handleAddNomination, NominationService } from '#nominations';
 import { SchedulingService } from './features/scheduling/service.js';
+import { Scheduler } from './features/scheduling/scheduler.js';
+import { CONFIGURE_BOT_COMMAND } from '#guild-config';
 
 config();
 
@@ -20,6 +32,7 @@ const client = new Client({
 const nominationService = new NominationService();
 const votingService = new VotingService();
 const schedulingService = new SchedulingService(client);
+const scheduler = new Scheduler(schedulingService);
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Bot is ready! Logged in as ${readyClient.user.tag}`);
@@ -28,11 +41,8 @@ client.once(Events.ClientReady, async (readyClient) => {
   await testConnection();
 
   console.log(`Connected to ${readyClient.guilds.cache.size} guild(s)`);
-  
-  // Post a random nomination to each guild
-  readyClient.guilds.cache.forEach(guild => {
-    schedulingService.postRandomNomination(guild.id);
-  });
+
+  scheduler.start();
 
   console.log(`Waiting for interactions...`);
 });
@@ -42,6 +52,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isMessageContextMenuCommand()) {
       if (interaction.commandName === 'Add Nomination') {
         await handleAddNomination(interaction, nominationService);
+      }
+    } else if (
+      interaction.isChatInputCommand() &&
+      interaction.commandName === CONFIGURE_BOT_COMMAND.name
+    ) {
+      await handleConfigureBotCommand(interaction);
+    } else if (interaction.isChannelSelectMenu()) {
+      if (interaction.customId === NOMINATION_CHANNEL_SELECT_ID) {
+        await handleNominationChannelChange(interaction);
+      }
+    } else if (interaction.isStringSelectMenu()) {
+      switch (interaction.customId) {
+        case RANDOM_POST_SCHEDULE_SELECT_ID:
+          await handleRandomPostScheduleChange(interaction);
+          break;
+        case ALLOW_CROSSPOSTS_SELECT_ID:
+          await handleAllowCrosspostsChange(interaction);
+          break;
+        case ENABLE_MONTHLY_RECAP_SELECT_ID:
+          await handleEnableMonthlyRecapChange(interaction);
+          break;
       }
     }
 
@@ -80,6 +111,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log(' Shutting down...');
+  scheduler.stop();
   client.destroy();
   await closePool();
   process.exit(0);
@@ -87,6 +119,7 @@ process.on('SIGINT', async () => {
 
 process.on('SIGTERM', async () => {
   console.log('Shutting down...');
+  scheduler.stop();
   client.destroy();
   await closePool();
   process.exit(0);

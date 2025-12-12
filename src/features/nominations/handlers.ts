@@ -1,7 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageContextMenuCommandInteraction, MessageFlags, TextChannel } from 'discord.js';
 import { EmbedHelper, GreetingHelper, MessageHelper } from '#shared';
-import { addOrUpdateVote, type VotingService } from '#voting';
+import { addOrUpdateVote } from '#voting';
 import { updateNominationMessageId, type NominationService } from '#nominations';
+import { getGuildConfig } from '#guild-config';
 
 export async function handleAddNomination(
   interaction: MessageContextMenuCommandInteraction,
@@ -11,6 +12,35 @@ export async function handleAddNomination(
   const nominator = interaction.user.id;
   const guildId = interaction.guildId!;
 
+  // this is the nominated message
+  const message = await MessageHelper.getMessageFromLink(interaction.client, messageLink);
+
+  // Validate message
+  if (!message) {
+    await interaction.reply({
+      content: 'Could not find the message to nominate. It may have been deleted.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // early return if the message author is a bot or trying to nominate themselves
+  if (message.author.bot) {
+    await interaction.reply({
+      content: 'You cannot nominate messages from bots.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  if (message.author.id === nominator) {
+    await interaction.reply({
+      content: GreetingHelper.userNominatingOwnMessage(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
+    });
+    return;
+  }
+
+
   try {
     const result = await nominationService.addNomination(
       guildId,
@@ -19,9 +49,6 @@ export async function handleAddNomination(
     );
 
     if (result.success && result.nomination) {
-
-      // get the nominated message to include in the reply
-      const message = await MessageHelper.getMessageFromLink(interaction.client, messageLink);
 
       // create the embedded reply that'll be posted to the channel the comment
       // was nominated from
@@ -48,6 +75,25 @@ export async function handleAddNomination(
         .setStyle(ButtonStyle.Danger);
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(voteUpButton, voteDownButton);
+
+      // Crossposting logic
+      const guildConfig = await getGuildConfig(guildId);
+      if (guildConfig?.allow_crossposts && guildConfig.nomination_channel) {
+        try {
+          const nominationChannel = await interaction.client.channels.fetch(guildConfig.nomination_channel);
+          if (nominationChannel && nominationChannel instanceof TextChannel) {
+            await nominationChannel.send({
+              content: GreetingHelper.crosspostGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
+              embeds: embeds, //TODO: Remove the trail embedh
+              files: files ?? [],
+              components: [row],
+            });
+          }
+        } catch (error) {
+          console.error(`Error crossposting nomination for guild ${guildId}:`, error);
+          // Do not send error to user, just log it
+        }
+      }
 
       const replyMessage = await interaction.reply({
         content: GreetingHelper.generalChannelGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),

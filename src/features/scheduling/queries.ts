@@ -1,5 +1,6 @@
 import { query } from '../../config/database.js';
 import { type Nomination } from '../nominations/queries.js';
+import { type GuildConfig } from '#guild-config';
 
 export interface ScheduleHistory {
   id: number;
@@ -42,4 +43,42 @@ export async function getRandomUnpostedNomination(
   );
 
   return result.rows[0] || null;
+}
+
+export async function getDueGuilds(): Promise<GuildConfig[]> {
+    const result = await query<GuildConfig>(
+        `SELECT *
+         FROM guild_config
+         WHERE random_post_schedule IS NOT NULL
+           AND next_random_post <= NOW()`
+    );
+    return result.rows;
+}
+
+export async function updateNextPostTime(guildId: string, nextPostTime: Date): Promise<void> {
+    await query(
+        'UPDATE guild_config SET next_random_post = $1 WHERE guild_id = $2',
+        [nextPostTime, guildId]
+    );
+}
+
+export async function getNominationsFromPreviousMonth(guildId: string): Promise<Nomination[]> {
+    const result = await query<Nomination>(
+        `SELECT *
+         FROM nominations
+         WHERE guild_id = $1
+           AND created_at >= date_trunc('month', current_date - interval '1 month')
+           AND created_at < date_trunc('month', current_date)`,
+        [guildId]
+    );
+    return result.rows;
+}
+
+export async function getRecapEnabledGuilds(): Promise<GuildConfig[]> {
+    const result = await query<GuildConfig>(
+        `SELECT *
+         FROM guild_config
+         WHERE enable_monthly_recap = true`
+    );
+    return result.rows;
 }
