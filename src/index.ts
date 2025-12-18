@@ -16,6 +16,7 @@ import { closePool, testConnection } from '#config';
 import { handleAddNomination, NominationService } from '#nominations';
 import { CONFIGURE_BOT_COMMAND } from '#guild-config';
 import { Scheduler, SchedulingService } from '#scheduling';
+import * as http from 'http';
 
 config();
 
@@ -32,6 +33,17 @@ const nominationService = new NominationService();
 const votingService = new VotingService();
 const schedulingService = new SchedulingService(client);
 const scheduler = new Scheduler(schedulingService);
+
+// Start dummy HTTP server for Fly.io health checks
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('OK');
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`HTTP server listening on 0.0.0.0:${PORT}`);
+});
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Bot is ready! Logged in as ${readyClient.user.tag}`);
@@ -113,7 +125,10 @@ process.on('SIGINT', async () => {
   scheduler.stop();
   client.destroy();
   await closePool();
-  process.exit(0);
+  server.close(() => {
+    console.log('HTTP server closed.');
+    process.exit(0);
+  });
 });
 
 process.on('SIGTERM', async () => {
@@ -121,7 +136,10 @@ process.on('SIGTERM', async () => {
   scheduler.stop();
   client.destroy();
   await closePool();
-  process.exit(0);
+  server.close(() => {
+    console.log('HTTP server closed.');
+    process.exit(0);
+  });
 });
 
 client.login(process.env.DISCORD_TOKEN);

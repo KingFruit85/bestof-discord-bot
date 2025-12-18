@@ -1,9 +1,30 @@
 {
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "#shared": [
+        "./src/shared/index.ts"
+      ],
+      "#voting": [
+        "./src/features/voting/index.ts"
+      ],
+      "#nominations": [
+        "./src/features/nominations/index.ts"
+      ],
+      "#config": [
+        "./src/config/index.ts"
+      ],
+      "#scheduling": [
+        "./src/features/scheduling/index.ts"
+      ],
+      "#guild-config": [
+        "./src/features/guild_config/index.ts"
+      ]
+    },
     // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
+    "rootDir": "./src",
+    "outDir": "./dist",
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
@@ -39,8 +60,13 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

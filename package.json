@@ -12,18 +12,19 @@
     "init-db": "tsx src/config/init-db.ts"
   },
   "imports": {
-    "#shared": "./src/shared/index.ts",
-    "#voting": "./src/features/voting/index.ts",
-    "#nominations": "./src/features/nominations/index.ts",
-    "#config": "./src/config/index.ts",
-    "#scheduling": "./src/features/scheduling/index.ts",
-    "#guild-config": "./src/features/guild_config/index.ts"
+    "#shared": "./dist/shared/index.js",
+    "#voting": "./dist/features/voting/index.js",
+    "#nominations": "./dist/features/nominations/index.js",
+    "#config": "./dist/config/index.js",
+    "#scheduling": "./dist/features/scheduling/index.js",
+    "#guild-config": "./dist/features/guild_config/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.10",
     "@types/node": "^24.10.1",
     "@types/pg": "^8.15.6",
     "prettier": "^3.7.1",
