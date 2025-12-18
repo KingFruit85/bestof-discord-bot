@@ -11,6 +11,7 @@ export async function handleAddNomination(
   const messageLink = interaction.targetMessage.url;
   const nominator = interaction.user.id;
   const guildId = interaction.guildId!;
+  const chrisUserId = '317070992339894273'
 
   // this is the nominated message
   const message = await MessageHelper.getMessageFromLink(interaction.client, messageLink);
@@ -33,7 +34,7 @@ export async function handleAddNomination(
     return;
   }
 
-  if (message.author.id === nominator) {
+  if (message.author.id === nominator && message.author.id != chrisUserId) {
     await interaction.reply({
       content: GreetingHelper.userNominatingOwnMessage(interaction.user),
     });
@@ -53,10 +54,14 @@ export async function handleAddNomination(
       // create the embedded reply that'll be posted to the channel the comment
       // was nominated from
 
-      const { embeds, files } = await EmbedHelper.createNominationEmbeds(
+      let { embeds, files } = await EmbedHelper.createNominationEmbeds(
         interaction.user,
         message,
       );
+
+      embeds = embeds.slice(0, -1);
+
+      const embedsWithoutVoteCounter = embeds.slice(0, -1);
 
       // Add users vote to the nomination
       await addOrUpdateVote(
@@ -76,15 +81,19 @@ export async function handleAddNomination(
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(voteUpButton, voteDownButton);
 
-      // Crossposting logic
+      // Cross post to nomination channel as long as the interaction origin isn't the nomination channel
       const guildConfig = await getGuildConfig(guildId);
+      if (interaction.channel === guildConfig?.nomination_channel) {
+        return;
+      }
+
       if (guildConfig?.allow_crossposts && guildConfig.nomination_channel) {
         try {
           const nominationChannel = await interaction.client.channels.fetch(guildConfig.nomination_channel);
           if (nominationChannel && nominationChannel instanceof TextChannel) {
             await nominationChannel.send({
               content: GreetingHelper.crosspostGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
-              embeds: embeds, //TODO: Remove the trail embedh
+              embeds: embedsWithoutVoteCounter,
               files: files ?? [],
               components: [row],
             });
@@ -95,6 +104,7 @@ export async function handleAddNomination(
         }
       }
 
+      // Reply to origin channel
       const replyMessage = await interaction.reply({
         content: GreetingHelper.generalChannelGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
         embeds: embeds,
