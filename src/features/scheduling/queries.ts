@@ -1,6 +1,6 @@
-import { query } from '../../config/database.js';
 import { type Nomination } from '../nominations/queries.js';
 import { type GuildConfig } from '#guild-config';
+import { query } from '#config';
 
 export interface ScheduleHistory {
   id: number;

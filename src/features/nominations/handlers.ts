@@ -35,7 +35,7 @@ export async function handleAddNomination(
 
   if (message.author.id === nominator) {
     await interaction.reply({
-      content: GreetingHelper.userNominatingOwnMessage(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
+      content: GreetingHelper.userNominatingOwnMessage(interaction.user),
     });
     return;
   }

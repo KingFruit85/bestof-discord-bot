@@ -47,9 +47,7 @@ export class GreetingHelper {
     }
 
     public static userNominatingOwnMessage(
-        channel: TextChannel | ThreadChannel,
         user: User,
-        message: Message
     ): string {
         const replies = [
             `Oh, look, ${user} is so proud of their own message they had to nominate it themselves! Let's all give them a round of applause for their self-love!`,

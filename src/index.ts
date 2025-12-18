@@ -14,9 +14,8 @@ import {
 } from './features/guild_config/handlers.js';
 import { closePool, testConnection } from '#config';
 import { handleAddNomination, NominationService } from '#nominations';
-import { SchedulingService } from './features/scheduling/service.js';
-import { Scheduler } from './features/scheduling/scheduler.js';
 import { CONFIGURE_BOT_COMMAND } from '#guild-config';
+import { Scheduler, SchedulingService } from '#scheduling';
 
 config();
 
