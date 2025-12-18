@@ -104,7 +104,6 @@ export async function handleAddNomination(
               content: GreetingHelper.crosspostGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
               embeds: embedsWithoutVoteCounter,
               files: files ?? [],
-              components: [row],
             });
           }
         } catch (error) {
