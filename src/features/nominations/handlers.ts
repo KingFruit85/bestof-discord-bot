@@ -59,8 +59,7 @@ export async function handleAddNomination(
         message,
       );
 
-      embeds = embeds.slice(0, -1);
-
+      // 
       const embedsWithoutVoteCounter = embeds.slice(0, -1);
 
       // Add users vote to the nomination
