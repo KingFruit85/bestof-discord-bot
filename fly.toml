@@ -16,6 +16,10 @@ primary_region = 'lhr'
   min_machines_running = 1
   processes = ['app']
 
+[scaling]
+  min = 1
+  max = 1
+
 [[vm]]
   memory = '256mb'
   cpus = 1
