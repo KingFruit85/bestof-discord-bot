@@ -82,13 +82,17 @@ export async function handleAddNomination(
 
       // Cross post to nomination channel as long as the interaction origin isn't the nomination channel
       const guildConfig = await getGuildConfig(guildId);
-      if (interaction.channel === guildConfig?.nomination_channel) {
-        return;
-      }
 
       if (guildConfig?.allow_crossposts && guildConfig.nomination_channel) {
         try {
           const nominationChannel = await interaction.client.channels.fetch(guildConfig.nomination_channel);
+
+          // This should prevent double posting in the nomination channel
+          if (interaction.channel === nominationChannel)
+          {
+            return;
+          }
+
           if (nominationChannel && nominationChannel instanceof TextChannel) {
             await nominationChannel.send({
               content: GreetingHelper.crosspostGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
