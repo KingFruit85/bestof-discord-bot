@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageContextMenuCommandInteraction, MessageFlags, TextChannel } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageContextMenuCommandInteraction, MessageFlags, TextChannel } from 'discord.js';
 import { EmbedHelper, GreetingHelper, MessageHelper } from '#shared';
 import { addOrUpdateVote } from '#voting';
 import { updateNominationMessageId, type NominationService } from '#nominations';
@@ -59,9 +59,6 @@ export async function handleAddNomination(
         message,
       );
 
-      // 
-      const embedsWithoutVoteCounter = embeds.slice(0, -1);
-
       // Add users vote to the nomination
       await addOrUpdateVote(
         result.nomination.id,
@@ -88,12 +85,21 @@ export async function handleAddNomination(
           const nominationChannel = await interaction.client.channels.fetch(guildConfig.nomination_channel);
 
           // This should prevent double posting in the nomination channel
-          if (interaction.channel === nominationChannel)
-          {
-            return;
-          }
+          const interactionOriginChannelIsNominationChannel = interaction.channel?.id === nominationChannel?.id;
+          
+          let embedsWithoutVoteCounter = embeds.slice(0, -1);
 
-          if (nominationChannel && nominationChannel instanceof TextChannel) {
+          const tail = new EmbedBuilder()
+            .addFields(
+              {
+                name: "🔗 Message Link",
+                value: `[Jump to message](${message.url})`
+              }
+            )
+
+          embedsWithoutVoteCounter.push(tail);
+
+          if (nominationChannel && nominationChannel instanceof TextChannel && !interactionOriginChannelIsNominationChannel) {
             await nominationChannel.send({
               content: GreetingHelper.crosspostGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
               embeds: embedsWithoutVoteCounter,
