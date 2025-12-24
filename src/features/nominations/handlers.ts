@@ -55,7 +55,6 @@ export async function handleAddNomination(
       // was nominated from
 
       let { embeds, files } = await EmbedHelper.createNominationEmbeds(
-        interaction.user,
         message,
       );
 
