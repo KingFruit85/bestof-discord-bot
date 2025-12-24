@@ -1,6 +1,6 @@
+import type { Votes } from "#voting";
 import {
     EmbedBuilder,
-    User,
     Message,
     Colors,
     AttachmentBuilder,
@@ -35,8 +35,8 @@ export class EmbedHelper {
     }
 
     public static async createNominationEmbeds(
-        user: User,
-        message: Message
+        message: Message,
+        voteCounts?: Votes
     ): Promise<{
         embeds: EmbedBuilder[];
         files?: AttachmentBuilder[];
@@ -104,12 +104,12 @@ export class EmbedHelper {
             .addFields(
                 {
                     name: "Up votes",
-                    value: "1",
+                    value: voteCounts ? String(voteCounts.up_votes) : "1",
                     inline: true
                 },
                 {
                     name: "Down votes",
-                    value: "0",
+                    value: voteCounts ? String(voteCounts.down_votes) : "0",
                     inline: true
                 },
                 {

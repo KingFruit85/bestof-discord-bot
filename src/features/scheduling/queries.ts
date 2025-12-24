@@ -45,6 +45,7 @@ export async function getRandomUnpostedNomination(
   return result.rows[0] || null;
 }
 
+
 export async function getDueGuilds(): Promise<GuildConfig[]> {
     const result = await query<GuildConfig>(
         `SELECT *

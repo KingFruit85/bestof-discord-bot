@@ -8,6 +8,11 @@ export interface Vote {
   created_at: Date;
 }
 
+export interface Votes {
+  up_votes: number;
+  down_votes: number
+}
+
 export async function addOrUpdateVote(
   nominationId: number,
   voterId: string,
@@ -34,8 +39,8 @@ export async function addOrUpdateVote(
 
 export async function getVoteCountsForNomination(
   nominationId: number
-): Promise<{ up_votes: number; down_votes: number }> {
-  const result = await query<{ up_votes: number; down_votes: number }>(
+): Promise<Votes> {
+  const result = await query<Votes>(
     `SELECT
         COALESCE(COUNT(v.id) FILTER (WHERE v.vote_value = 1), 0)::int as up_votes,
         COALESCE(COUNT(v.id) FILTER (WHERE v.vote_value = -1), 0)::int as down_votes

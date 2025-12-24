@@ -7,6 +7,7 @@ import {
 } from './queries.js';
 import { EmbedHelper, GreetingHelper, MessageHelper } from '#shared';
 import { getGuildConfig, getNominationChannel } from '#guild-config';
+import { getVoteCountsForNomination } from '#voting';
 
 export class SchedulingService {
   private client: Client;
@@ -35,6 +36,9 @@ export class SchedulingService {
       return;
     }
 
+    // get nomination votes
+    const votecounts = await getVoteCountsForNomination(nomination.id);
+
     try {
       const channel = await this.client.channels.fetch(nominationChannelId);
       if (channel && channel instanceof TextChannel) {
@@ -43,8 +47,8 @@ export class SchedulingService {
           nomination.message_link
         );
         const { embeds, files } = await EmbedHelper.createNominationEmbeds(
-          message.author,
-          message
+          message,
+          votecounts
         );
         await channel.send({ content: GreetingHelper.randomNominationMessage(message.author), embeds, files: files ?? [] });
         await addNominationToHistory(guildId, nomination.message_link);
