@@ -43,6 +43,7 @@ export async function handleAddNomination(
 
 
   try {
+    await interaction.deferReply({ ephemeral: true });
     const result = await nominationService.addNomination(
       guildId,
       messageLink,
@@ -112,16 +113,17 @@ export async function handleAddNomination(
       }
 
       // Reply to origin channel
-      const replyMessage = await interaction.reply({
+      const replyMessage = await interaction.followUp({
         content: GreetingHelper.generalChannelGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
         embeds: embeds,
         files: files ?? [],
         components: [row],
-        withResponse: true,
       });
+      
+      await interaction.editReply({ content: 'Nomination submitted!' });
 
       if (replyMessage && result.nomination.id) {
-        await updateNominationMessageId(result.nomination.id, replyMessage.resource?.message?.id as string);
+        await updateNominationMessageId(result.nomination.id, replyMessage.id);
       }
     } else if (result.error === 'ALREADY_NOMINATED') {
       if (result.nomination) {
@@ -131,23 +133,20 @@ export async function handleAddNomination(
           'up'
         );
 
-        await interaction.reply({
+        await interaction.editReply({
           content: 'This message has already been nominated! Your vote has been added to the existing nomination if it wasn\'t already.',
-          flags: MessageFlags.Ephemeral
         });
       } else {
-        await interaction.reply({
+        await interaction.editReply({
           content: 'This message has already been nominated, but the original nomination could not be retrieved.',
-          flags: MessageFlags.Ephemeral
         });
 
       }
     }
   } catch (error) {
     console.error('Error handling interaction:', error);
-    await interaction.reply({
+    await interaction.editReply({
       content: 'There was an error adding this nomination.',
-      flags: MessageFlags.Ephemeral
     });
   }
 }
