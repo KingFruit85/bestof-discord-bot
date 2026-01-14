@@ -11,8 +11,8 @@ export class Scheduler {
   }
 
   start() {
-    // Run every minute
-    this.interval = setInterval(() => this.checkTasks(), 60 * 1000);
+    // Run every five minutes
+    this.interval = setInterval(() => this.checkTasks(), 300 * 1000);
     console.log('Scheduler started.');
   }
 
