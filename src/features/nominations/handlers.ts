@@ -118,6 +118,7 @@ export async function handleAddNomination(
         embeds: embeds,
         files: files ?? [],
         components: [row],
+        ephemeral: false,
       });
       
       await interaction.editReply({ content: 'Nomination submitted!' });
