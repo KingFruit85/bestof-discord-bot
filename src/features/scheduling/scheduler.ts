@@ -24,6 +24,15 @@ export class Scheduler {
   }
 
   private async checkTasks() {
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    // Only run tasks between 8 AM and 10 AM (08:00 - 09:59)
+    if (currentHour < 8 || currentHour >= 10) {
+      console.log('Scheduler is active only between 08:00 and 10:00. Skipping tasks.');
+      return;
+    }
+
     await this.handleRandomPosts();
     await this.handleMonthlyRecaps();
   }

@@ -113,12 +113,11 @@ export async function handleAddNomination(
       }
 
       // Reply to origin channel
-      const replyMessage = await interaction.followUp({
+      const replyMessage = await (interaction.channel as TextChannel).send({
         content: GreetingHelper.generalChannelGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
         embeds: embeds,
         files: files ?? [],
         components: [row],
-        ephemeral: false,
       });
       
       await interaction.editReply({ content: 'Nomination submitted!' });
