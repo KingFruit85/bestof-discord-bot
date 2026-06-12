@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "register": "tsx src/register-commands.ts",
     "type-check": "tsc --noEmit",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "init-db": "tsx src/config/init-db.ts"
   },
   "imports": {

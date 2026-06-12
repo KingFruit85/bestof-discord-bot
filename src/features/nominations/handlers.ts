@@ -55,7 +55,7 @@ export async function handleAddNomination(
       // create the embedded reply that'll be posted to the channel the comment
       // was nominated from
 
-      let { embeds, files } = await EmbedHelper.createNominationEmbeds(
+      let { embeds, files, videoUrls } = await EmbedHelper.createNominationEmbeds(
         message,
       );
 
@@ -101,7 +101,10 @@ export async function handleAddNomination(
 
           if (nominationChannel && nominationChannel instanceof TextChannel && !interactionOriginChannelIsNominationChannel) {
             await nominationChannel.send({
-              content: GreetingHelper.crosspostGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
+              content: [
+                GreetingHelper.crosspostGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
+                ...videoUrls,
+              ].join('\n'),
               embeds: embedsWithoutVoteCounter,
               files: files ?? [],
             });
@@ -114,7 +117,10 @@ export async function handleAddNomination(
 
       // Reply to origin channel
       const replyMessage = await (interaction.channel as TextChannel).send({
-        content: GreetingHelper.generalChannelGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
+        content: [
+          GreetingHelper.generalChannelGreeting(interaction.channel as TextChannel, interaction.user, interaction.targetMessage),
+          ...videoUrls,
+        ].join('\n'),
         embeds: embeds,
         files: files ?? [],
         components: [row],

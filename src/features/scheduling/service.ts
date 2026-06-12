@@ -5,6 +5,7 @@ import {
   getRandomUnpostedNomination,
   getNominationsFromPreviousMonth,
 } from './queries.js';
+import { pickPostableNomination } from './picker.js';
 import { EmbedHelper, GreetingHelper, MessageHelper } from '#shared';
 import { getGuildConfig, getNominationChannel } from '#guild-config';
 import { getVoteCountsForNomination } from '#voting';
@@ -23,18 +24,26 @@ export class SchedulingService {
       return;
     }
 
-    let nomination = await getRandomUnpostedNomination(guildId);
+    // Nominations whose original message is gone are recorded in history so
+    // they stop being picked, and another candidate is tried immediately.
+    const picked = await pickPostableNomination({
+      getCandidate: () => getRandomUnpostedNomination(guildId),
+      resetHistory: () => clearScheduleHistory(guildId),
+      fetchMessage: (link) => MessageHelper.getMessageFromLink(this.client, link),
+      markUnpostable: async (link) => {
+        console.log(
+          `Nomination message ${link} could not be fetched (likely deleted); excluding it from future scheduled posts.`
+        );
+        await addNominationToHistory(guildId, link);
+      },
+    });
 
-    if (!nomination) {
-      // All nominations have been posted, clear history and try again
-      await clearScheduleHistory(guildId);
-      nomination = await getRandomUnpostedNomination(guildId);
-    }
-
-    if (!nomination) {
-      console.log(`No nominations to post for guild ${guildId}`);
+    if (!picked) {
+      console.log(`No postable nominations for guild ${guildId}`);
       return;
     }
+
+    const { nomination, message } = picked;
 
     // get nomination votes
     const votecounts = await getVoteCountsForNomination(nomination.id);
@@ -42,15 +51,15 @@ export class SchedulingService {
     try {
       const channel = await this.client.channels.fetch(nominationChannelId);
       if (channel && channel instanceof TextChannel) {
-        const message = await MessageHelper.getMessageFromLink(
-          this.client,
-          nomination.message_link
-        );
-        const { embeds, files } = await EmbedHelper.createNominationEmbeds(
+        const { embeds, files, videoUrls } = await EmbedHelper.createNominationEmbeds(
           message,
           votecounts
         );
-        await channel.send({ content: GreetingHelper.randomNominationMessage(message.author), embeds, files: files ?? [] });
+        const content = [
+          GreetingHelper.randomNominationMessage(message.author),
+          ...videoUrls,
+        ].join('\n');
+        await channel.send({ content, embeds, files: files ?? [] });
         await addNominationToHistory(guildId, nomination.message_link);
         console.log(`Posted nomination ${nomination.id} to channel ${nominationChannelId}`);
       }

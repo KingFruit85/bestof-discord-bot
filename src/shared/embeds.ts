@@ -6,13 +6,18 @@ import {
     AttachmentBuilder,
 } from "discord.js";
 
+// Bots can't re-upload files beyond the non-boosted guild limit
+const MAX_VIDEO_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
 export class EmbedHelper {
-    private static _handleMessageImage(
+    private static _handleMessageMedia(
         message: Message,
         embed: EmbedBuilder,
-        files: AttachmentBuilder[] = [],
         isRef = false
-    ): AttachmentBuilder[] {
+    ): { files: AttachmentBuilder[]; videoUrls: string[] } {
+        const files: AttachmentBuilder[] = [];
+        const videoUrls: string[] = [];
+
         const attachmentImage = message.attachments.find(a =>
             a.contentType?.startsWith("image/")
         );
@@ -21,17 +26,36 @@ export class EmbedHelper {
 
         if (attachmentImage) {
             const filename = attachmentImage.name ?? `${isRef ? 'ref-' : ''}image.png`;
-            const attachment = new AttachmentBuilder(attachmentImage.url).setName(filename);
-
+            files.push(new AttachmentBuilder(attachmentImage.url).setName(filename));
             embed.setImage(`attachment://${filename}`);
-            return [...files, attachment];
-        }
-
-        if (embedImageUrl) {
+        } else if (embedImageUrl) {
             embed.setImage(embedImageUrl);
         }
 
-        return files;
+        // The API ignores the video field on bot-sent embeds, so videos must
+        // travel outside the embeds: small attachments are re-uploaded (Discord
+        // renders a player), everything else is surfaced as a URL for the
+        // caller to put in the message content where Discord unfurls it.
+        const attachmentVideo = message.attachments.find(a =>
+            a.contentType?.startsWith("video/")
+        );
+
+        if (attachmentVideo) {
+            if (attachmentVideo.size <= MAX_VIDEO_ATTACHMENT_BYTES) {
+                const filename = attachmentVideo.name ?? `${isRef ? 'ref-' : ''}video.mp4`;
+                files.push(new AttachmentBuilder(attachmentVideo.url).setName(filename));
+            } else {
+                videoUrls.push(attachmentVideo.url);
+            }
+        }
+
+        const videoEmbed = message.embeds.find(e => e.data.video?.url);
+        const videoSourceUrl = videoEmbed?.data.url ?? videoEmbed?.data.video?.url;
+        if (videoSourceUrl) {
+            videoUrls.push(videoSourceUrl);
+        }
+
+        return { files, videoUrls };
     }
 
     public static async createNominationEmbeds(
@@ -40,9 +64,11 @@ export class EmbedHelper {
     ): Promise<{
         embeds: EmbedBuilder[];
         files?: AttachmentBuilder[];
+        videoUrls: string[];
     }> {
         const embeds: EmbedBuilder[] = [];
-        let files: AttachmentBuilder[] | undefined;
+        const files: AttachmentBuilder[] = [];
+        const videoUrls: string[] = [];
 
         // ---------------------------------------------------------------------
         // 1) REFERENCED MESSAGE EMBED (if the nominated message is a reply)
@@ -70,7 +96,9 @@ export class EmbedHelper {
                 refEmbed.setDescription(reference.content.slice(0, 4096));
             }
 
-            files = this._handleMessageImage(reference, refEmbed, files, true);
+            const refMedia = this._handleMessageMedia(reference, refEmbed, true);
+            files.push(...refMedia.files);
+            videoUrls.push(...refMedia.videoUrls);
             embeds.push(refEmbed);
         }
 
@@ -90,9 +118,11 @@ export class EmbedHelper {
         }
 
         // ---------------------------------------------------------------------
-        // 3) MAIN MESSAGE IMAGE (attach or remote)
+        // 3) MAIN MESSAGE MEDIA (attach, remote image, or video)
         // ---------------------------------------------------------------------
-        files = this._handleMessageImage(message, lead, files);
+        const media = this._handleMessageMedia(message, lead);
+        files.push(...media.files);
+        videoUrls.push(...media.videoUrls);
 
         embeds.push(lead);
 
@@ -121,7 +151,7 @@ export class EmbedHelper {
 
         embeds.push(tail);
 
-        return { embeds, files: files ?? []};
+        return { embeds, files, videoUrls };
     }
 
     public static getUpdatedTailEmbed(
