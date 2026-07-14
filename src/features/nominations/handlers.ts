@@ -34,14 +34,18 @@ const CONTEXT_SKIP_CUSTOM_ID = 'nomination_context_skip';
  * Shows an ephemeral picker letting the nominator attach up to
  * MAX_CONTEXT_SELECTIONS preceding channel messages as context. Returns the
  * chosen messages oldest-first, an empty array if skipped or if there were no
- * candidates to choose from, or null if the picker timed out (in which case
- * the nomination should NOT proceed — the reply has already been updated to
- * say so).
+ * candidates to choose from, or null if the picker genuinely timed out (in
+ * which case the nomination should NOT proceed — the reply has already been
+ * updated to say so).
  */
 async function promptForContextMessages(
   interaction: MessageContextMenuCommandInteraction,
   message: Message
 ): Promise<Message[] | null> {
+  // Ack immediately, before any awaits that could blow Discord's 3-second
+  // interaction ack window (e.g. the message fetch below under latency).
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
   const channel = message.channel as TextChannel;
 
   let candidates: Message[];
@@ -54,7 +58,6 @@ async function promptForContextMessages(
   }
 
   if (candidates.length === 0) {
-    await interaction.deferReply({ ephemeral: true });
     return [];
   }
 
@@ -70,9 +73,8 @@ async function promptForContextMessages(
     .setLabel('Skip / no context')
     .setStyle(ButtonStyle.Secondary);
 
-  await interaction.reply({
+  await interaction.editReply({
     content: 'Does this nomination need extra context from earlier messages?',
-    ephemeral: true,
     components: [
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select),
       new ActionRowBuilder<ButtonBuilder>().addComponents(skipButton),
@@ -81,35 +83,52 @@ async function promptForContextMessages(
 
   const replyMessage = await interaction.fetchReply();
 
+  let componentInteraction;
   try {
-    const componentInteraction = await replyMessage.awaitMessageComponent({
+    componentInteraction = await replyMessage.awaitMessageComponent({
       filter: (i) =>
         i.user.id === interaction.user.id &&
         (i.customId === CONTEXT_SELECT_CUSTOM_ID || i.customId === CONTEXT_SKIP_CUSTOM_ID),
       time: 2 * 60_000,
     });
-
-    if (componentInteraction.customId === CONTEXT_SKIP_CUSTOM_ID) {
-      await componentInteraction.update({ content: 'Continuing without extra context…', components: [] });
-      return [];
-    }
-
-    if (componentInteraction.isStringSelectMenu()) {
-      await componentInteraction.update({ content: 'Adding selected context…', components: [] });
-      const selectedIds = new Set(componentInteraction.values);
-      return candidates
-        .filter((candidate) => selectedIds.has(candidate.id))
-        .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-    }
-
-    return [];
-  } catch {
+  } catch (error) {
+    console.error('Nomination context picker timed out waiting for a selection:', error);
     await interaction.editReply({
       content: 'Context selection timed out; nomination cancelled. Please try again.',
       components: [],
     });
     return null;
   }
+
+  if (componentInteraction.customId === CONTEXT_SKIP_CUSTOM_ID) {
+    try {
+      await componentInteraction.update({ content: 'Continuing without extra context…', components: [] });
+    } catch (error) {
+      console.error('Error acknowledging context-picker skip selection:', error);
+    }
+    return [];
+  }
+
+  if (componentInteraction.isStringSelectMenu()) {
+    const selectedIds = new Set(componentInteraction.values);
+    const selected = candidates
+      .filter((candidate) => selectedIds.has(candidate.id))
+      .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+    try {
+      await componentInteraction.update({ content: 'Adding selected context…', components: [] });
+    } catch (error) {
+      console.error('Error acknowledging context-picker selection:', error);
+    }
+    return selected;
+  }
+
+  // Unreachable given the filter above (only select/skip customIds match),
+  // but ack defensively so the client doesn't show a stuck interaction.
+  if (componentInteraction.isRepliable()) {
+    await componentInteraction.deferUpdate().catch(() => {});
+  }
+  return [];
 }
 
 /**
