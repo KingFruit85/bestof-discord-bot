@@ -51,13 +51,13 @@ export class SchedulingService {
     try {
       const channel = await this.client.channels.fetch(nominationChannelId);
       if (channel && channel instanceof TextChannel) {
-        const { embeds, files, videoUrls } = await EmbedHelper.createNominationEmbeds(
+        const { embeds, files, mediaUrls } = await EmbedHelper.createNominationEmbeds(
           message,
           votecounts
         );
         const content = [
           GreetingHelper.randomNominationMessage(message.author),
-          ...videoUrls,
+          ...mediaUrls,
         ].join('\n');
         await channel.send({ content, embeds, files: files ?? [] });
         await addNominationToHistory(guildId, nomination.message_link);

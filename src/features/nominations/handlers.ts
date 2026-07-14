@@ -55,7 +55,7 @@ export async function handleAddNomination(
       // create the embedded reply that'll be posted to the channel the comment
       // was nominated from
 
-      let { embeds, files, videoUrls } = await EmbedHelper.createNominationEmbeds(
+      let { embeds, files, mediaUrls: videoUrls } = await EmbedHelper.createNominationEmbeds(
         message,
       );
 

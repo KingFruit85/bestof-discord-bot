@@ -55,13 +55,13 @@ test('video attachments are attached so Discord renders a player', async () => {
   );
   const message = fakeMessage({ attachments });
 
-  const { files, videoUrls } = await EmbedHelper.createNominationEmbeds(message);
+  const { files, mediaUrls } = await EmbedHelper.createNominationEmbeds(message);
 
   assert.equal(files?.length, 1);
-  assert.deepEqual(videoUrls, []);
+  assert.deepEqual(mediaUrls, []);
 });
 
-test('oversized video attachments fall back to a CDN link in videoUrls', async () => {
+test('oversized video attachments fall back to a CDN link in mediaUrls', async () => {
   const attachments = new Collection<string, Attachment>();
   attachments.set(
     '1',
@@ -74,13 +74,51 @@ test('oversized video attachments fall back to a CDN link in videoUrls', async (
   );
   const message = fakeMessage({ attachments });
 
-  const { files, videoUrls } = await EmbedHelper.createNominationEmbeds(message);
+  const { files, mediaUrls } = await EmbedHelper.createNominationEmbeds(message);
 
   assert.equal(files?.length, 0);
-  assert.deepEqual(videoUrls, ['https://cdn.discordapp.com/attachments/1/2/big.mp4']);
+  assert.deepEqual(mediaUrls, ['https://cdn.discordapp.com/attachments/1/2/big.mp4']);
 });
 
-test('embedded video links (e.g. YouTube) are surfaced in videoUrls for content unfurling', async () => {
+test('audio attachments (e.g. voice messages) are attached so Discord renders a player', async () => {
+  const attachments = new Collection<string, Attachment>();
+  attachments.set(
+    '1',
+    fakeAttachment({
+      name: 'voice-message.ogg',
+      contentType: 'audio/ogg',
+      url: 'https://cdn.discordapp.com/attachments/1/2/voice-message.ogg',
+      size: 512 * 1024,
+    })
+  );
+  const message = fakeMessage({ attachments });
+
+  const { files, mediaUrls } = await EmbedHelper.createNominationEmbeds(message);
+
+  assert.equal(files?.length, 1);
+  assert.deepEqual(mediaUrls, []);
+});
+
+test('oversized audio attachments fall back to a CDN link in mediaUrls', async () => {
+  const attachments = new Collection<string, Attachment>();
+  attachments.set(
+    '1',
+    fakeAttachment({
+      name: 'big.mp3',
+      contentType: 'audio/mpeg',
+      url: 'https://cdn.discordapp.com/attachments/1/2/big.mp3',
+      size: 50 * 1024 * 1024,
+    })
+  );
+  const message = fakeMessage({ attachments });
+
+  const { files, mediaUrls } = await EmbedHelper.createNominationEmbeds(message);
+
+  assert.equal(files?.length, 0);
+  assert.deepEqual(mediaUrls, ['https://cdn.discordapp.com/attachments/1/2/big.mp3']);
+});
+
+test('embedded video links (e.g. YouTube) are surfaced in mediaUrls for content unfurling', async () => {
   const message = fakeMessage({
     content: 'check this out https://www.youtube.com/watch?v=abc123',
     embeds: [
@@ -93,16 +131,16 @@ test('embedded video links (e.g. YouTube) are surfaced in videoUrls for content 
     ] as Embed[],
   });
 
-  const { videoUrls } = await EmbedHelper.createNominationEmbeds(message);
+  const { mediaUrls } = await EmbedHelper.createNominationEmbeds(message);
 
-  assert.deepEqual(videoUrls, ['https://www.youtube.com/watch?v=abc123']);
+  assert.deepEqual(mediaUrls, ['https://www.youtube.com/watch?v=abc123']);
 });
 
 test('text-only messages produce no files and no video urls', async () => {
   const message = fakeMessage();
 
-  const { files, videoUrls } = await EmbedHelper.createNominationEmbeds(message);
+  const { files, mediaUrls } = await EmbedHelper.createNominationEmbeds(message);
 
   assert.equal(files?.length, 0);
-  assert.deepEqual(videoUrls, []);
+  assert.deepEqual(mediaUrls, []);
 });

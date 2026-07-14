@@ -7,16 +7,16 @@ import {
 } from "discord.js";
 
 // Bots can't re-upload files beyond the non-boosted guild limit
-const MAX_VIDEO_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const MAX_MEDIA_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 export class EmbedHelper {
     private static _handleMessageMedia(
         message: Message,
         embed: EmbedBuilder,
         isRef = false
-    ): { files: AttachmentBuilder[]; videoUrls: string[] } {
+    ): { files: AttachmentBuilder[]; mediaUrls: string[] } {
         const files: AttachmentBuilder[] = [];
-        const videoUrls: string[] = [];
+        const mediaUrls: string[] = [];
 
         const attachmentImage = message.attachments.find(a =>
             a.contentType?.startsWith("image/")
@@ -41,21 +41,35 @@ export class EmbedHelper {
         );
 
         if (attachmentVideo) {
-            if (attachmentVideo.size <= MAX_VIDEO_ATTACHMENT_BYTES) {
+            if (attachmentVideo.size <= MAX_MEDIA_ATTACHMENT_BYTES) {
                 const filename = attachmentVideo.name ?? `${isRef ? 'ref-' : ''}video.mp4`;
                 files.push(new AttachmentBuilder(attachmentVideo.url).setName(filename));
             } else {
-                videoUrls.push(attachmentVideo.url);
+                mediaUrls.push(attachmentVideo.url);
             }
         }
 
         const videoEmbed = message.embeds.find(e => e.data.video?.url);
-        const videoSourceUrl = videoEmbed?.data.url ?? videoEmbed?.data.video?.url;
+        const videoSourceUrl = videoEmbed?.data.url;
         if (videoSourceUrl) {
-            videoUrls.push(videoSourceUrl);
+            mediaUrls.push(videoSourceUrl);
         }
 
-        return { files, videoUrls };
+        const attachmentAudio = message.attachments.find(a => a.contentType?.startsWith("audio/"))
+        const audioSourceUrl = attachmentAudio?.url ?? attachmentAudio?.proxyURL;
+
+        if (attachmentAudio) {
+            if (attachmentAudio.size <= MAX_MEDIA_ATTACHMENT_BYTES) {
+                const filename = attachmentAudio.name ?? `${isRef ? 'ref-' : ''}audio.ogg`
+                files.push(new AttachmentBuilder(attachmentAudio.url).setName(filename));
+            } else {
+                if (audioSourceUrl) {
+                    mediaUrls.push(audioSourceUrl)
+                }
+            }
+        }
+
+        return { files, mediaUrls };
     }
 
     public static async createNominationEmbeds(
@@ -64,11 +78,11 @@ export class EmbedHelper {
     ): Promise<{
         embeds: EmbedBuilder[];
         files?: AttachmentBuilder[];
-        videoUrls: string[];
+        mediaUrls: string[];
     }> {
         const embeds: EmbedBuilder[] = [];
         const files: AttachmentBuilder[] = [];
-        const videoUrls: string[] = [];
+        const mediaUrls: string[] = [];
 
         // ---------------------------------------------------------------------
         // 1) REFERENCED MESSAGE EMBED (if the nominated message is a reply)
@@ -98,7 +112,7 @@ export class EmbedHelper {
 
             const refMedia = this._handleMessageMedia(reference, refEmbed, true);
             files.push(...refMedia.files);
-            videoUrls.push(...refMedia.videoUrls);
+            mediaUrls.push(...refMedia.mediaUrls);
             embeds.push(refEmbed);
         }
 
@@ -122,7 +136,7 @@ export class EmbedHelper {
         // ---------------------------------------------------------------------
         const media = this._handleMessageMedia(message, lead);
         files.push(...media.files);
-        videoUrls.push(...media.videoUrls);
+        mediaUrls.push(...media.mediaUrls);
 
         embeds.push(lead);
 
@@ -151,25 +165,25 @@ export class EmbedHelper {
 
         embeds.push(tail);
 
-        return { embeds, files, videoUrls };
+        return { embeds, files, mediaUrls };
     }
 
     public static getUpdatedTailEmbed(
-      tailEmbed: EmbedBuilder,
-      upvotes: number,
-      downvotes: number
+        tailEmbed: EmbedBuilder,
+        upvotes: number,
+        downvotes: number
     ): EmbedBuilder {
-      const updatedFields = tailEmbed.data.fields?.map((field) => {
-        if (field.name === "Up votes") {
-          return { ...field, value: upvotes.toString() };
-        }
-        if (field.name === "Down votes") {
-          return { ...field, value: downvotes.toString() };
-        }
-        return field;
-      });
+        const updatedFields = tailEmbed.data.fields?.map((field) => {
+            if (field.name === "Up votes") {
+                return { ...field, value: upvotes.toString() };
+            }
+            if (field.name === "Down votes") {
+                return { ...field, value: downvotes.toString() };
+            }
+            return field;
+        });
 
-      tailEmbed.setFields(updatedFields || []);
-      return tailEmbed;
+        tailEmbed.setFields(updatedFields || []);
+        return tailEmbed;
     }
 }
