@@ -1,5 +1,23 @@
 import { query } from "#config";
 
+export type VoteSource = 'button' | 'reaction';
+
+export type VoteDecision = 'insert' | 'update' | 'ignore';
+
+/**
+ * Pure decision logic for first-method-wins voting: a user's vote is
+ * "owned" by whichever source (button or reaction) first recorded it.
+ * Kept separate from addOrUpdateVote so it can be unit tested without a DB.
+ */
+export function decideVoteAction(
+  existingSource: VoteSource | null,
+  incomingSource: VoteSource
+): VoteDecision {
+  if (!existingSource) return 'insert';
+  if (existingSource !== incomingSource) return 'ignore';
+  return 'update';
+}
+
 export interface Vote {
   id: number;
   nomination_id: number;
