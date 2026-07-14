@@ -27,6 +27,18 @@ export interface Vote {
   created_at: Date;
 }
 
+/**
+ * A vote row with vote_value === 0 is a withdrawn reaction vote (see
+ * clearReactionVote) — it's kept for history, but no longer represents an
+ * active claim on this nomination. Treating it as null here lets the other
+ * method freely claim the vote once it's withdrawn, instead of being
+ * permanently locked out by the row's stale `source`.
+ */
+export function activeSourceOf(vote: Vote | null): VoteSource | null {
+  if (!vote || vote.vote_value === 0) return null;
+  return vote.source;
+}
+
 export interface Votes {
   up_votes: number;
   down_votes: number
@@ -57,21 +69,24 @@ export async function addOrUpdateVote(
 ): Promise<VoteResult> {
   const voteValue = voteType === 'up' ? 1 : -1;
   const existing = await getVote(nominationId, voterId);
-  const decision = decideVoteAction(existing?.source ?? null, source);
+  const decision = decideVoteAction(activeSourceOf(existing), source);
 
   if (decision === 'ignore') {
     return { vote: null, ignored: true };
   }
 
-  // Only perform the UPDATE if the existing vote value in
-  // the table is different from the new vote value
+  // Only perform the UPDATE if the existing vote value in the table is
+  // different from the new vote value. A row with vote_value = 0 (a
+  // withdrawn reaction vote) is up for grabs by either method, so it's
+  // allowed to reclaim `source` too, not just `vote_value`.
   const result = await query<Vote>(
     `INSERT INTO votes (nomination_id, voter_id, vote_value, source)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (nomination_id, voter_id) DO UPDATE
-         SET vote_value = EXCLUDED.vote_value
+         SET vote_value = EXCLUDED.vote_value,
+             source = EXCLUDED.source
          WHERE votes.vote_value IS DISTINCT FROM EXCLUDED.vote_value
-           AND votes.source = EXCLUDED.source
+           AND (votes.vote_value = 0 OR votes.source = EXCLUDED.source)
          RETURNING *`,
     [nominationId, voterId, voteValue, source]
   );
