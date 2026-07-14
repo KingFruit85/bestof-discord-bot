@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS votes (
     nomination_id INTEGER NOT NULL REFERENCES nominations(id) ON DELETE CASCADE,
     voter_id VARCHAR(20) NOT NULL,
     vote_value SMALLINT NOT NULL,
+    source VARCHAR(10) NOT NULL DEFAULT 'button',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomination_id, voter_id)
 );
