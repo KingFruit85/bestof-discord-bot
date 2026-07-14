@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Partials } from 'discord.js';
 import { config } from 'dotenv';
 import { VotingService } from '#voting';
 import {
@@ -13,7 +13,12 @@ import {
   ENABLE_MONTHLY_RECAP_SELECT_ID,
 } from './features/guild_config/handlers.js';
 import { closePool, testConnection } from '#config';
-import { handleAddNomination, NominationService } from '#nominations';
+import {
+  handleAddNomination,
+  NominationService,
+  handleTrophyReactionAdd,
+  handleTrophyReactionRemove,
+} from '#nominations';
 import { CONFIGURE_BOT_COMMAND } from '#guild-config';
 import { Scheduler, SchedulingService } from '#scheduling';
 import * as http from 'http';
@@ -25,7 +30,9 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,
   ],
+  partials: [Partials.Message, Partials.Reaction, Partials.User],
 });
 
 // Initialize services
@@ -120,6 +127,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   } catch (error) {
     console.error('Error handling interaction:', error);
+  }
+});
+
+client.on(Events.MessageReactionAdd, async (reaction, user) => {
+  try {
+    await handleTrophyReactionAdd(reaction, user, nominationService, votingService);
+  } catch (error) {
+    console.error('Error handling trophy reaction add:', error);
+  }
+});
+
+client.on(Events.MessageReactionRemove, async (reaction, user) => {
+  try {
+    await handleTrophyReactionRemove(reaction, user, votingService);
+  } catch (error) {
+    console.error('Error handling trophy reaction remove:', error);
   }
 });
 
