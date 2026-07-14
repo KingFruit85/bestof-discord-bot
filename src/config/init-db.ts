@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { getPool, testConnection, closePool } from './database.js';
 
-async function initializeDatabase() {
+export async function initializeDatabase() {
   console.log('Initializing database...');
   
   // Test connection
@@ -27,4 +27,8 @@ async function initializeDatabase() {
   }
 }
 
-initializeDatabase();
+const isMainModule = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+
+if (isMainModule) {
+  initializeDatabase();
+}
