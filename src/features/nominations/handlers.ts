@@ -63,7 +63,8 @@ export async function handleAddNomination(
       await addOrUpdateVote(
         result.nomination.id,
         nominator,
-        'up'
+        'up',
+        'button'
       );
 
       const voteUpButton = new ButtonBuilder()
@@ -136,7 +137,8 @@ export async function handleAddNomination(
         await addOrUpdateVote(
           result.nomination.id,
           nominator,
-          'up'
+          'up',
+          'button'
         );
 
         await interaction.editReply({

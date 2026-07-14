@@ -101,15 +101,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const userId = interaction.user.id;
 
       if (action === 'vote') {
-        await votingService.addOrUpdateVote(
-          interaction,
+        const result = await votingService.addOrUpdateVote(
+          interaction.client,
+          interaction.channelId,
           Number(nominationId),
           userId,
-          voteType as 'up' | 'down'
+          voteType as 'up' | 'down',
+          'button'
         );
 
         await interaction.reply({
-          content: `Your vote has been recorded, thanks!`,
+          content: result.ignored
+            ? "You've already voted on this with 🏆 — reactions and buttons can't both be used for the same nomination."
+            : `Your vote has been recorded, thanks!`,
           ephemeral: true,
         });
       }

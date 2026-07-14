@@ -23,6 +23,7 @@ export interface Vote {
   nomination_id: number;
   voter_id: string;
   vote_value: number;
+  source: VoteSource;
   created_at: Date;
 }
 
@@ -31,28 +32,69 @@ export interface Votes {
   down_votes: number
 }
 
+export interface VoteResult {
+  vote: Vote | null;
+  /** true only when a different-source vote already owns this user/nomination pair */
+  ignored: boolean;
+}
+
+export async function getVote(
+  nominationId: number,
+  voterId: string
+): Promise<Vote | null> {
+  const result = await query<Vote>(
+    'SELECT * FROM votes WHERE nomination_id = $1 AND voter_id = $2',
+    [nominationId, voterId]
+  );
+  return result.rows[0] || null;
+}
+
 export async function addOrUpdateVote(
   nominationId: number,
   voterId: string,
-  voteType: 'up' | 'down'
-): Promise<Vote | null> {
+  voteType: 'up' | 'down',
+  source: VoteSource
+): Promise<VoteResult> {
   const voteValue = voteType === 'up' ? 1 : -1;
+  const existing = await getVote(nominationId, voterId);
+  const decision = decideVoteAction(existing?.source ?? null, source);
 
+  if (decision === 'ignore') {
+    return { vote: null, ignored: true };
+  }
 
   // Only perform the UPDATE if the existing vote value in
   // the table is different from the new vote value
   const result = await query<Vote>(
-    `INSERT INTO votes (nomination_id, voter_id, vote_value)
-         VALUES ($1, $2, $3)
+    `INSERT INTO votes (nomination_id, voter_id, vote_value, source)
+         VALUES ($1, $2, $3, $4)
          ON CONFLICT (nomination_id, voter_id) DO UPDATE
          SET vote_value = EXCLUDED.vote_value
          WHERE votes.vote_value IS DISTINCT FROM EXCLUDED.vote_value
          RETURNING *`,
-    [nominationId, voterId, voteValue]
+    [nominationId, voterId, voteValue, source]
   );
 
-  return result.rows[0] || null;
+  return { vote: result.rows[0] || null, ignored: false };
+}
 
+/**
+ * Zeroes out a reaction-sourced vote when the user removes their 🏆
+ * reaction. No-ops if the user has no vote, or their vote is
+ * button-sourced (first-method-wins) — in the button case the row's
+ * `source` won't match, so the WHERE clause simply matches nothing.
+ */
+export async function clearReactionVote(
+  nominationId: number,
+  voterId: string
+): Promise<Vote | null> {
+  const result = await query<Vote>(
+    `UPDATE votes SET vote_value = 0
+     WHERE nomination_id = $1 AND voter_id = $2 AND source = 'reaction'
+     RETURNING *`,
+    [nominationId, voterId]
+  );
+  return result.rows[0] || null;
 }
 
 export async function getVoteCountsForNomination(
