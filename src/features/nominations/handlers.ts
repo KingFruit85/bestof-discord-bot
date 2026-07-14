@@ -10,6 +10,7 @@ import {
   type MessageReaction,
   type PartialMessageReaction,
   type PartialUser,
+  StringSelectMenuBuilder,
   TextChannel,
   type User,
 } from 'discord.js';
@@ -17,12 +18,98 @@ import { EmbedHelper, GreetingHelper, MessageHelper } from '#shared';
 import { addOrUpdateVote, type VotingService, type VoteSource } from '#voting';
 import { updateNominationMessageId, getNominationByLink, type NominationService } from '#nominations';
 import { getGuildConfig } from '#guild-config';
+import { buildContextSelectMenuOptions, MAX_CONTEXT_CANDIDATES, MAX_CONTEXT_SELECTIONS } from './context-picker.js';
 
 const CHRIS_USER_ID = '317070992339894273';
 const TROPHY_EMOJI = '🏆';
 
 interface NominationOutcome {
   status: 'created' | 'already_nominated' | 'already_nominated_unknown' | 'failed';
+}
+
+const CONTEXT_SELECT_CUSTOM_ID = 'nomination_context_select';
+const CONTEXT_SKIP_CUSTOM_ID = 'nomination_context_skip';
+
+/**
+ * Shows an ephemeral picker letting the nominator attach up to
+ * MAX_CONTEXT_SELECTIONS preceding channel messages as context. Returns the
+ * chosen messages oldest-first, an empty array if skipped or if there were no
+ * candidates to choose from, or null if the picker timed out (in which case
+ * the nomination should NOT proceed — the reply has already been updated to
+ * say so).
+ */
+async function promptForContextMessages(
+  interaction: MessageContextMenuCommandInteraction,
+  message: Message
+): Promise<Message[] | null> {
+  const channel = message.channel as TextChannel;
+
+  let candidates: Message[];
+  try {
+    const preceding = await channel.messages.fetch({ limit: MAX_CONTEXT_CANDIDATES, before: message.id });
+    candidates = [...preceding.values()];
+  } catch (error) {
+    console.error('Error fetching preceding messages for nomination context picker:', error);
+    candidates = [];
+  }
+
+  if (candidates.length === 0) {
+    await interaction.deferReply({ ephemeral: true });
+    return [];
+  }
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(CONTEXT_SELECT_CUSTOM_ID)
+    .setPlaceholder('Select up to 3 messages for context (optional)')
+    .setMinValues(1)
+    .setMaxValues(Math.min(MAX_CONTEXT_SELECTIONS, candidates.length))
+    .addOptions(buildContextSelectMenuOptions(candidates));
+
+  const skipButton = new ButtonBuilder()
+    .setCustomId(CONTEXT_SKIP_CUSTOM_ID)
+    .setLabel('Skip / no context')
+    .setStyle(ButtonStyle.Secondary);
+
+  await interaction.reply({
+    content: 'Does this nomination need extra context from earlier messages?',
+    ephemeral: true,
+    components: [
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(skipButton),
+    ],
+  });
+
+  const replyMessage = await interaction.fetchReply();
+
+  try {
+    const componentInteraction = await replyMessage.awaitMessageComponent({
+      filter: (i) =>
+        i.user.id === interaction.user.id &&
+        (i.customId === CONTEXT_SELECT_CUSTOM_ID || i.customId === CONTEXT_SKIP_CUSTOM_ID),
+      time: 2 * 60_000,
+    });
+
+    if (componentInteraction.customId === CONTEXT_SKIP_CUSTOM_ID) {
+      await componentInteraction.update({ content: 'Continuing without extra context…', components: [] });
+      return [];
+    }
+
+    if (componentInteraction.isStringSelectMenu()) {
+      await componentInteraction.update({ content: 'Adding selected context…', components: [] });
+      const selectedIds = new Set(componentInteraction.values);
+      return candidates
+        .filter((candidate) => selectedIds.has(candidate.id))
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    }
+
+    return [];
+  } catch {
+    await interaction.editReply({
+      content: 'Context selection timed out; nomination cancelled. Please try again.',
+      components: [],
+    });
+    return null;
+  }
 }
 
 /**
@@ -36,12 +123,14 @@ async function createAndPostNomination(
   nominator: User,
   client: Client,
   nominationService: NominationService,
-  source: VoteSource
+  source: VoteSource,
+  contextMessages: Message[] = []
 ): Promise<NominationOutcome> {
   const guildId = message.guildId!;
   const messageLink = message.url;
+  const contextMessageLinks = contextMessages.map((m) => m.url);
 
-  const result = await nominationService.addNomination(guildId, messageLink, nominator.id);
+  const result = await nominationService.addNomination(guildId, messageLink, nominator.id, contextMessageLinks);
 
   if (result.error === 'ALREADY_NOMINATED') {
     if (!result.nomination) {
@@ -59,7 +148,7 @@ async function createAndPostNomination(
 
   // create the embedded reply that'll be posted to the channel the comment
   // was nominated from
-  let { embeds, files, mediaUrls } = await EmbedHelper.createNominationEmbeds(message);
+  let { embeds, files, mediaUrls } = await EmbedHelper.createNominationEmbeds(message, undefined, contextMessages);
 
   // Add nominator's vote to the nomination
   await addOrUpdateVote(result.nomination.id, nominator.id, 'up', source);
@@ -164,14 +253,18 @@ export async function handleAddNomination(
   }
 
   try {
-    await interaction.deferReply({ ephemeral: true });
+    const contextMessages = await promptForContextMessages(interaction, message);
+    if (contextMessages === null) {
+      return;
+    }
 
     const outcome = await createAndPostNomination(
       message,
       nominator,
       interaction.client,
       nominationService,
-      'button'
+      'button',
+      contextMessages
     );
 
     switch (outcome.status) {
