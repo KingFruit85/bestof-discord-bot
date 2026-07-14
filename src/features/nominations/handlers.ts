@@ -235,7 +235,10 @@ export async function handleTrophyReactionAdd(
       return;
     }
 
-    await createAndPostNomination(fullMessage, fullUser, fullMessage.client, nominationService, 'reaction');
+    const outcome = await createAndPostNomination(fullMessage, fullUser, fullMessage.client, nominationService, 'reaction');
+    if (outcome.status === 'failed' || outcome.status === 'already_nominated_unknown') {
+      console.error(`Trophy-reaction nomination did not complete cleanly (status: ${outcome.status}) for message ${fullMessage.url}`);
+    }
     return;
   }
 
