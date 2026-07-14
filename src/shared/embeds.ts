@@ -72,9 +72,30 @@ export class EmbedHelper {
         return { files, mediaUrls };
     }
 
+    private static _buildContextEmbed(
+        msg: Message,
+        isRef = false
+    ): { embed: EmbedBuilder; files: AttachmentBuilder[]; mediaUrls: string[] } {
+        const embed = new EmbedBuilder()
+            .setColor(Colors.Blurple)
+            .setAuthor({
+                name: msg.author.displayName,
+                iconURL: msg.author.displayAvatarURL()
+            })
+            .setTimestamp(msg.createdTimestamp);
+
+        if (msg.content) {
+            embed.setDescription(msg.content.slice(0, 4096));
+        }
+
+        const media = this._handleMessageMedia(msg, embed, isRef);
+        return { embed, files: media.files, mediaUrls: media.mediaUrls };
+    }
+
     public static async createNominationEmbeds(
         message: Message,
-        voteCounts?: Votes
+        voteCounts?: Votes,
+        contextMessages: Message[] = []
     ): Promise<{
         embeds: EmbedBuilder[];
         files?: AttachmentBuilder[];
@@ -98,22 +119,20 @@ export class EmbedHelper {
         }
 
         if (reference) {
-            const refEmbed = new EmbedBuilder()
-                .setColor(Colors.Blurple)
-                .setAuthor({
-                    name: reference.author.displayName,
-                    iconURL: reference.author.displayAvatarURL()
-                })
-                .setTimestamp(reference.createdTimestamp);
+            const built = this._buildContextEmbed(reference, true);
+            files.push(...built.files);
+            mediaUrls.push(...built.mediaUrls);
+            embeds.push(built.embed);
+        }
 
-            if (reference.content) {
-                refEmbed.setDescription(reference.content.slice(0, 4096));
-            }
-
-            const refMedia = this._handleMessageMedia(reference, refEmbed, true);
-            files.push(...refMedia.files);
-            mediaUrls.push(...refMedia.mediaUrls);
-            embeds.push(refEmbed);
+        // ---------------------------------------------------------------------
+        // 1b) USER-SELECTED CONTEXT MESSAGES (oldest-first)
+        // ---------------------------------------------------------------------
+        for (const contextMessage of contextMessages) {
+            const built = this._buildContextEmbed(contextMessage, true);
+            files.push(...built.files);
+            mediaUrls.push(...built.mediaUrls);
+            embeds.push(built.embed);
         }
 
         // ---------------------------------------------------------------------
