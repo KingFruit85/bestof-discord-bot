@@ -71,6 +71,7 @@ export async function addOrUpdateVote(
          ON CONFLICT (nomination_id, voter_id) DO UPDATE
          SET vote_value = EXCLUDED.vote_value
          WHERE votes.vote_value IS DISTINCT FROM EXCLUDED.vote_value
+           AND votes.source = EXCLUDED.source
          RETURNING *`,
     [nominationId, voterId, voteValue, source]
   );
