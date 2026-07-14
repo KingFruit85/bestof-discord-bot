@@ -80,6 +80,28 @@ test('long labels are truncated to fit Discord select-option limits', () => {
   assert.ok(label.endsWith('…'));
 });
 
+test('labels exactly at the 100-char limit are not truncated', () => {
+  // 'Tester: ' is 8 chars, so 92 more chars lands exactly on the limit.
+  const content = 'x'.repeat(92);
+  const label = buildContextOptionLabel(fakeCandidate({ content }));
+  assert.equal(label.length, 100);
+  assert.ok(!label.endsWith('…'));
+});
+
+test('emoji-heavy labels are truncated on code-point boundaries, not mid-surrogate-pair', () => {
+  const emoji = '😀'; // U+1F600, a surrogate pair in UTF-16
+  const longContent = emoji.repeat(150);
+  const label = buildContextOptionLabel(fakeCandidate({ content: longContent }));
+
+  assert.ok(label.endsWith('…'));
+  assert.ok(!label.includes('�'));
+
+  // A lone surrogate encodes/decodes lossily (produces the replacement
+  // character); round-tripping confirms every surrogate is still paired.
+  const roundTripped = new TextDecoder().decode(new TextEncoder().encode(label));
+  assert.equal(roundTripped, label);
+});
+
 test('buildContextSelectMenuOptions maps each message to a label/value pair keyed by message id', () => {
   const messages = [fakeCandidate({ id: 'a', content: 'first' }), fakeCandidate({ id: 'b', content: 'second' })];
   const options = buildContextSelectMenuOptions(messages);
@@ -92,4 +114,8 @@ test('buildContextSelectMenuOptions maps each message to a label/value pair keye
 test('exports the agreed candidate and selection caps', () => {
   assert.equal(MAX_CONTEXT_CANDIDATES, 10);
   assert.equal(MAX_CONTEXT_SELECTIONS, 3);
+});
+
+test('buildContextSelectMenuOptions returns an empty array for no messages', () => {
+  assert.deepEqual(buildContextSelectMenuOptions([]), []);
 });
