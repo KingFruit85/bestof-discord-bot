@@ -13,7 +13,7 @@ export class EmbedHelper {
     private static _handleMessageMedia(
         message: Message,
         embed: EmbedBuilder,
-        isRef = false
+        namePrefix = ""
     ): { files: AttachmentBuilder[]; mediaUrls: string[] } {
         const files: AttachmentBuilder[] = [];
         const mediaUrls: string[] = [];
@@ -25,7 +25,7 @@ export class EmbedHelper {
             message.embeds.find(e => e.data.image?.url)?.data.image?.url ?? null;
 
         if (attachmentImage) {
-            const filename = attachmentImage.name ?? `${isRef ? 'ref-' : ''}image.png`;
+            const filename = attachmentImage.name ?? `${namePrefix}image.png`;
             files.push(new AttachmentBuilder(attachmentImage.url).setName(filename));
             embed.setImage(`attachment://${filename}`);
         } else if (embedImageUrl) {
@@ -42,7 +42,7 @@ export class EmbedHelper {
 
         if (attachmentVideo) {
             if (attachmentVideo.size <= MAX_MEDIA_ATTACHMENT_BYTES) {
-                const filename = attachmentVideo.name ?? `${isRef ? 'ref-' : ''}video.mp4`;
+                const filename = attachmentVideo.name ?? `${namePrefix}video.mp4`;
                 files.push(new AttachmentBuilder(attachmentVideo.url).setName(filename));
             } else {
                 mediaUrls.push(attachmentVideo.url);
@@ -60,7 +60,7 @@ export class EmbedHelper {
 
         if (attachmentAudio) {
             if (attachmentAudio.size <= MAX_MEDIA_ATTACHMENT_BYTES) {
-                const filename = attachmentAudio.name ?? `${isRef ? 'ref-' : ''}audio.ogg`
+                const filename = attachmentAudio.name ?? `${namePrefix}audio.ogg`
                 files.push(new AttachmentBuilder(attachmentAudio.url).setName(filename));
             } else {
                 if (audioSourceUrl) {
@@ -74,7 +74,7 @@ export class EmbedHelper {
 
     private static _buildContextEmbed(
         msg: Message,
-        isRef = false
+        namePrefix = ""
     ): { embed: EmbedBuilder; files: AttachmentBuilder[]; mediaUrls: string[] } {
         const embed = new EmbedBuilder()
             .setColor(Colors.Blurple)
@@ -88,7 +88,7 @@ export class EmbedHelper {
             embed.setDescription(msg.content.slice(0, 4096));
         }
 
-        const media = this._handleMessageMedia(msg, embed, isRef);
+        const media = this._handleMessageMedia(msg, embed, namePrefix);
         return { embed, files: media.files, mediaUrls: media.mediaUrls };
     }
 
@@ -119,7 +119,7 @@ export class EmbedHelper {
         }
 
         if (reference) {
-            const built = this._buildContextEmbed(reference, true);
+            const built = this._buildContextEmbed(reference, "ref-");
             files.push(...built.files);
             mediaUrls.push(...built.mediaUrls);
             embeds.push(built.embed);
@@ -128,12 +128,12 @@ export class EmbedHelper {
         // ---------------------------------------------------------------------
         // 1b) USER-SELECTED CONTEXT MESSAGES (oldest-first)
         // ---------------------------------------------------------------------
-        for (const contextMessage of contextMessages) {
-            const built = this._buildContextEmbed(contextMessage, true);
+        contextMessages.forEach((contextMessage, index) => {
+            const built = this._buildContextEmbed(contextMessage, `ctx-${index}-`);
             files.push(...built.files);
             mediaUrls.push(...built.mediaUrls);
             embeds.push(built.embed);
-        }
+        });
 
         // ---------------------------------------------------------------------
         // 2) NOMINATED MESSAGE

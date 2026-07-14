@@ -159,6 +159,30 @@ test('context messages are inserted before the lead embed, after any reply embed
   assert.ok(embeds[embeds.length - 1]!.data.fields?.some((f) => f.name === 'Up votes'));
 });
 
+test('context messages with unnamed image attachments get disambiguated fallback filenames', async () => {
+  const attachmentsA = new Collection<string, Attachment>();
+  attachmentsA.set('1', fakeAttachment({ name: undefined, contentType: 'image/png' }));
+  const contextA = fakeMessage({ content: 'context A', attachments: attachmentsA });
+
+  const attachmentsB = new Collection<string, Attachment>();
+  attachmentsB.set('1', fakeAttachment({ name: undefined, contentType: 'image/png' }));
+  const contextB = fakeMessage({ content: 'context B', attachments: attachmentsB });
+
+  const message = fakeMessage({ content: 'main message' });
+
+  const { embeds, files } = await EmbedHelper.createNominationEmbeds(message, undefined, [contextA, contextB]);
+
+  assert.equal(files?.length, 2);
+  const fileNames = files!.map((f) => f.name);
+  assert.equal(new Set(fileNames).size, 2, 'file names must be unique across context embeds');
+
+  const imageUrlA = embeds[0]!.data.image?.url;
+  const imageUrlB = embeds[1]!.data.image?.url;
+  assert.ok(imageUrlA);
+  assert.ok(imageUrlB);
+  assert.notEqual(imageUrlA, imageUrlB);
+});
+
 test('with no contextMessages argument, behavior is unchanged (backward compatible)', async () => {
   const message = fakeMessage({ content: 'main message' });
 
