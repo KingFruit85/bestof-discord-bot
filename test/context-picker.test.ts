@@ -102,6 +102,23 @@ test('emoji-heavy labels are truncated on code-point boundaries, not mid-surroga
   assert.equal(roundTripped, label);
 });
 
+test('regression: a label under 100 code points but over 100 UTF-16 units is still truncated to fit Discord\'s actual limit', () => {
+  // 68 code points ('Tester: ' + 60 emoji) but 128 UTF-16 units, since each
+  // emoji is a 2-unit surrogate pair. A code-point-only length check (the
+  // prior, buggy implementation) would wrongly treat this as short enough
+  // and skip truncation entirely, causing Discord's API to reject the
+  // select-menu option with a real length > 100 — this is exactly what
+  // happened in production when a bot-authored greeting message (containing
+  // 🔥/🏆 emoji) was picked up as a context-picker candidate.
+  const emoji = '🔥'; // U+1F525, a surrogate pair in UTF-16
+  const content = emoji.repeat(60);
+  const label = buildContextOptionLabel(fakeCandidate({ content }));
+
+  assert.ok(Array.from(`Tester: ${content}`).length <= 100, 'sanity check: code-point count is under 100');
+  assert.ok(`Tester: ${content}`.length > 100, 'sanity check: UTF-16 length is over 100');
+  assert.ok(label.length <= 100, `label UTF-16 length must be <= 100, got ${label.length}`);
+});
+
 test('buildContextSelectMenuOptions maps each message to a label/value pair keyed by message id', () => {
   const messages = [fakeCandidate({ id: 'a', content: 'first' }), fakeCandidate({ id: 'b', content: 'second' })];
   const options = buildContextSelectMenuOptions(messages);

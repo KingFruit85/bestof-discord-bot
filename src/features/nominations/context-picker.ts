@@ -30,13 +30,23 @@ function describeMessageContent(message: ContextCandidate): string {
 
 export function buildContextOptionLabel(message: ContextCandidate): string {
   const label = `${message.author.displayName}: ${describeMessageContent(message)}`;
-  const codePoints = Array.from(label);
-  if (codePoints.length <= OPTION_LABEL_MAX_LENGTH) return label;
 
-  // Slice on code points (not raw UTF-16 code units) so we never bisect a
-  // surrogate pair — doing so would produce an unpaired surrogate that
-  // renders as U+FFFD (the replacement character glyph) once encoded.
-  return `${codePoints.slice(0, OPTION_LABEL_MAX_LENGTH - 1).join('')}…`;
+  // Discord validates the option label's raw UTF-16 `.length`, not its
+  // code-point count — a code-point count under the limit is NOT sufficient
+  // (astral characters like many emoji are 2 UTF-16 units but 1 code point,
+  // so a label can pass a code-point check while still exceeding Discord's
+  // actual length limit). Build the truncated string one code point at a
+  // time, tracking UTF-16 length directly, so we both respect the real
+  // limit and never bisect a surrogate pair (which would leave a lone
+  // surrogate that renders as U+FFFD once encoded).
+  if (label.length <= OPTION_LABEL_MAX_LENGTH) return label;
+
+  let truncated = '';
+  for (const char of label) {
+    if (truncated.length + char.length > OPTION_LABEL_MAX_LENGTH - 1) break;
+    truncated += char;
+  }
+  return `${truncated}…`;
 }
 
 export function buildContextSelectMenuOptions(
