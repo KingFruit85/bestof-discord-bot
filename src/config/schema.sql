@@ -12,6 +12,8 @@ CREATE INDEX IF NOT EXISTS idx_nominations_guild_id ON nominations(guild_id);
 CREATE INDEX IF NOT EXISTS idx_nominations_created_at ON nominations(created_at);
 CREATE INDEX IF NOT EXISTS idx_nominations_nomination_message_id ON nominations(nomination_message_id);
 
+ALTER TABLE nominations ADD COLUMN IF NOT EXISTS context_message_links TEXT[];
+
 -- Votes table
 CREATE TABLE IF NOT EXISTS votes (
     id SERIAL PRIMARY KEY,

@@ -16,13 +16,15 @@ export class NominationService {
   async addNomination(
     guildId: string,
     messageLink: string,
-    nominator: string
+    nominator: string,
+    contextMessageLinks: string[] = []
   ): Promise<AddNominationResult> {
     try {
       const nomination = await queries.insertNomination(
         guildId,
         messageLink,
-        nominator
+        nominator,
+        contextMessageLinks
       );
 
       return {

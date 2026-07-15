@@ -1,4 +1,4 @@
-import { Client, TextChannel, EmbedBuilder } from 'discord.js';
+import { Client, TextChannel, EmbedBuilder, type Message } from 'discord.js';
 import {
   addNominationToHistory,
   clearScheduleHistory,
@@ -48,12 +48,29 @@ export class SchedulingService {
     // get nomination votes
     const votecounts = await getVoteCountsForNomination(nomination.id);
 
+    // Re-resolve any user-selected context messages; a context message that
+    // was deleted since the original post is silently dropped rather than
+    // invalidating the whole repost (unlike the main nominated message, which
+    // pickPostableNomination already guarantees is fetchable here).
+    const contextMessages = (
+      await Promise.all(
+        (nomination.context_message_links ?? []).map(async (link) => {
+          try {
+            return await MessageHelper.getMessageFromLink(this.client, link);
+          } catch {
+            return null;
+          }
+        })
+      )
+    ).filter((msg): msg is Message<true> => msg !== null);
+
     try {
       const channel = await this.client.channels.fetch(nominationChannelId);
       if (channel && channel instanceof TextChannel) {
         const { embeds, files, mediaUrls } = await EmbedHelper.createNominationEmbeds(
           message,
-          votecounts
+          votecounts,
+          contextMessages
         );
         const content = [
           GreetingHelper.randomNominationMessage(message.author),

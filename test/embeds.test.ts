@@ -144,3 +144,50 @@ test('text-only messages produce no files and no video urls', async () => {
   assert.equal(files?.length, 0);
   assert.deepEqual(mediaUrls, []);
 });
+
+test('context messages are inserted before the lead embed, after any reply embed, and tail stays last', async () => {
+  const contextA = fakeMessage({ content: 'context A' });
+  const contextB = fakeMessage({ content: 'context B' });
+  const message = fakeMessage({ content: 'main message' });
+
+  const { embeds } = await EmbedHelper.createNominationEmbeds(message, undefined, [contextA, contextB]);
+
+  assert.equal(embeds.length, 4);
+  assert.equal(embeds[0]!.data.description, 'context A');
+  assert.equal(embeds[1]!.data.description, 'context B');
+  assert.equal(embeds[2]!.data.description, 'main message');
+  assert.ok(embeds[embeds.length - 1]!.data.fields?.some((f) => f.name === 'Up votes'));
+});
+
+test('context messages with unnamed image attachments get disambiguated fallback filenames', async () => {
+  const attachmentsA = new Collection<string, Attachment>();
+  attachmentsA.set('1', fakeAttachment({ name: undefined, contentType: 'image/png' }));
+  const contextA = fakeMessage({ content: 'context A', attachments: attachmentsA });
+
+  const attachmentsB = new Collection<string, Attachment>();
+  attachmentsB.set('1', fakeAttachment({ name: undefined, contentType: 'image/png' }));
+  const contextB = fakeMessage({ content: 'context B', attachments: attachmentsB });
+
+  const message = fakeMessage({ content: 'main message' });
+
+  const { embeds, files } = await EmbedHelper.createNominationEmbeds(message, undefined, [contextA, contextB]);
+
+  assert.equal(files?.length, 2);
+  const fileNames = files!.map((f) => f.name);
+  assert.equal(new Set(fileNames).size, 2, 'file names must be unique across context embeds');
+
+  const imageUrlA = embeds[0]!.data.image?.url;
+  const imageUrlB = embeds[1]!.data.image?.url;
+  assert.ok(imageUrlA);
+  assert.ok(imageUrlB);
+  assert.notEqual(imageUrlA, imageUrlB);
+});
+
+test('with no contextMessages argument, behavior is unchanged (backward compatible)', async () => {
+  const message = fakeMessage({ content: 'main message' });
+
+  const { embeds } = await EmbedHelper.createNominationEmbeds(message);
+
+  assert.equal(embeds.length, 2);
+  assert.equal(embeds[0]!.data.description, 'main message');
+});

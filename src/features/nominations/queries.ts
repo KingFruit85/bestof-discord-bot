@@ -6,6 +6,7 @@ export interface Nomination {
   message_link: string;
   nominator: string;
   nomination_message_id?: string | null;
+  context_message_links: string[] | null;
   created_at: Date;
 }
 
@@ -22,13 +23,14 @@ export interface NominationWithVotes extends Nomination {
 export async function insertNomination(
   guildId: string,
   messageLink: string,
-  nominator: string
+  nominator: string,
+  contextMessageLinks: string[] = []
 ): Promise<Nomination> {
   const result = await query<Nomination>(
-    `INSERT INTO nominations (guild_id, message_link, nominator)
-     VALUES ($1, $2, $3)
+    `INSERT INTO nominations (guild_id, message_link, nominator, context_message_links)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [guildId, messageLink, nominator]
+    [guildId, messageLink, nominator, contextMessageLinks]
   );
 
   if (result.rows.length === 0 || result.rows[0] == undefined) {
