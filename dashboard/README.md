@@ -19,6 +19,9 @@ The bot's health-check server also defaults to port 3000. If both run at once, s
 |---|---|---|
 | `DASHBOARD_DATABASE_URL` | yes | Neon pooled connection string for the read-only role below |
 | `DASHBOARD_SERVER_NAMES` | no | JSON object mapping server IDs to display names. Unknown IDs show raw. |
+| `DASHBOARD_PASSWORD` | on Vercel | Password for the browser's login prompt (any username). Unset locally means no prompt. Unset on Vercel means every request gets a 503, so a forgotten variable can't leave it open. |
+
+The password is mainly there to stop crawlers and bots: every page load runs several database queries, which count against Neon's free-tier compute. Rejected requests are stopped in `proxy.ts` before the page or the database is touched.
 
 Server names live in env rather than a file because the repo is public.
 
@@ -44,9 +47,8 @@ npm run type-check
 
 ## Deploying to Vercel (later)
 
-1. **Protect it first.** The dashboard has no login. Enable Vercel Deployment Protection, or add password middleware, before deploying.
-2. Import the repo in Vercel and set **Root Directory** to `dashboard`.
-3. Add `DASHBOARD_DATABASE_URL` and `DASHBOARD_SERVER_NAMES` as project environment variables.
-4. Set **Ignored Build Step** to `git diff --quiet HEAD^ HEAD -- .` so bot-only commits don't trigger a dashboard build. (Vercel runs it from the root directory, so `.` means `dashboard/`.)
+1. Import the repo in Vercel and set **Root Directory** to `dashboard`.
+2. Add `DASHBOARD_DATABASE_URL`, `DASHBOARD_PASSWORD`, and `DASHBOARD_SERVER_NAMES` as project environment variables. Use the read-only role's **pooled** connection string. Don't use the owner role through the pooler: it would share pgbouncer connections with the bot, and the dashboard's per-connection read-only setting could leak onto them.
+3. Set **Ignored Build Step** to `git diff --quiet HEAD^ HEAD -- .` so bot-only commits don't trigger a dashboard build. (Vercel runs it from the root directory, so `.` means `dashboard/`.)
 
 The bot's Fly deploy already ignores this folder: `.dockerignore` excludes it, and the deploy workflow skips pushes that only change `dashboard/`.
