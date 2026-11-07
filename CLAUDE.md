@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Discord bot (TypeScript, discord.js v14, Node.js ESM) that lets server members nominate messages for a "best-of" collection. Nominations are voted on with reactions, randomly reposted to a configured channel on a schedule, and can be summarized in an opt-in monthly recap. Persistence is PostgreSQL via `pg`. Deployed to Fly.io (see `Dockerfile` / `fly.toml`).
 
+`dashboard/` is a separate, read-only Next.js app for inspecting the database (see `dashboard/README.md`). It has its own `package.json` and shares no code with the bot; the bot's `tsconfig.json`, Docker image, and Fly deploy workflow all exclude it.
+
 ## Commands
 
 ```bash
