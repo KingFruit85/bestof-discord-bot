@@ -5,7 +5,8 @@ import { RECENT_SORT_PARAM, RecentPostsPanel } from './components/RecentPostsPan
 import { ServerFilter } from './components/ServerFilter';
 import { SETTINGS_SORT_PARAM, SettingsPanel } from './components/SettingsPanel';
 import { TOP_SORT_PARAM, VoteStatsPanel } from './components/VoteStatsPanel';
-import { firstParam, parseServerNames, parseStatus, serverName, type SearchParamValue } from '../lib/format';
+import { firstParam, parseStatus, serverName, type SearchParamValue } from '../lib/format';
+import { lookupNames } from '../lib/names';
 import {
   getGuildIds,
   getGuildSettings,
@@ -35,7 +36,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const params = await searchParams;
   const guildId = firstParam(params.guild) || null;
   const status = parseStatus(params.status);
-  const names = parseServerNames(process.env.DASHBOARD_SERVER_NAMES);
   const showServer = guildId === null;
 
   // Each table keeps its own column sort in the URL.
@@ -67,6 +67,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     );
   }
 
+  // Live Discord names, cached a day per ID. Never throws; misses show raw IDs.
+  const resolved = await lookupNames(
+    data.nominations.map((n) => n.nominator),
+    data.guildIds,
+  );
+  const names = resolved.guilds;
+
   const options = data.guildIds.map((id) => ({ id, label: serverName(id, names) }));
 
   return (
@@ -88,6 +95,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         names={names}
         showServer={showServer}
         status={status}
+        userNames={resolved.users}
+        namesAvailable={resolved.available}
         sort={sorts[NOMINATIONS_SORT_PARAM]}
         current={current}
       />

@@ -9,7 +9,6 @@ import {
   formatPercent,
   fraction,
   isRecent,
-  parseServerNames,
   parseStatus,
   serverName,
 } from '../lib/format';
@@ -57,15 +56,6 @@ test('isRecent is true strictly inside the window', () => {
   assert.equal(isRecent(posted, new Date(posted.getTime() - 89 * DAY)), true);
   assert.equal(isRecent(posted, new Date(posted.getTime() - 90 * DAY)), false);
   assert.equal(isRecent(posted, new Date('2023-11-03T00:00:00Z')), false);
-});
-
-test('parseServerNames keeps only string values from a JSON object', () => {
-  assert.deepEqual(parseServerNames('{"1":"Daily","2":"Weekly"}'), { '1': 'Daily', '2': 'Weekly' });
-  assert.deepEqual(parseServerNames('{"1":"Daily","2":3}'), { '1': 'Daily' });
-  assert.deepEqual(parseServerNames(undefined), {});
-  assert.deepEqual(parseServerNames('not json'), {});
-  assert.deepEqual(parseServerNames('["a"]'), {});
-  assert.deepEqual(parseServerNames('null'), {});
 });
 
 test('serverName falls back to the raw ID', () => {

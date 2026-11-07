@@ -11,9 +11,12 @@ const STATUS_LINKS: { value: StatusFilter; label: string }[] = [
   { value: 'pool', label: 'Still in pool' },
 ];
 
-export function NominationListPanel({ rows, names, showServer, status, sort, current }: {
+export function NominationListPanel({ rows, names, userNames, namesAvailable, showServer, status, sort, current }: {
   rows: NominationRow[];
   names: Record<string, string>;
+  /** Nominator display names from Discord; missing IDs render raw. */
+  userNames: Record<string, string>;
+  namesAvailable: boolean;
   showServer: boolean;
   status: StatusFilter;
   sort: string | undefined;
@@ -24,7 +27,17 @@ export function NominationListPanel({ rows, names, showServer, status, sort, cur
     ...(showServer
       ? [{ key: 'server', label: 'Server', value: (r: NominationRow) => serverName(r.guild_id, names), render: (r: NominationRow) => serverName(r.guild_id, names) }]
       : []),
-    { key: 'nominator', label: 'Nominator ID', value: (r) => r.nominator, numeric: true, render: (r) => <span className="muted">{r.nominator}</span> },
+    {
+      key: 'nominator',
+      label: 'Nominator',
+      value: (r) => userNames[r.nominator] ?? r.nominator,
+      render: (r) =>
+        userNames[r.nominator] ? (
+          <span title={r.nominator}>{userNames[r.nominator]}</span>
+        ) : (
+          <span className="muted">{r.nominator}</span>
+        ),
+    },
     { key: 'up', label: 'Up', value: (r) => r.up_votes, defaultDir: 'desc', numeric: true, render: (r) => r.up_votes },
     { key: 'down', label: 'Down', value: (r) => r.down_votes, defaultDir: 'desc', numeric: true, render: (r) => r.down_votes },
     { key: 'net', label: 'Net', value: (r) => r.net_score, defaultDir: 'desc', numeric: true, render: (r) => r.net_score },
@@ -38,7 +51,11 @@ export function NominationListPanel({ rows, names, showServer, status, sort, cur
   ];
 
   return (
-    <Panel id="nominations" title="Nominations" hint={`${rows.length} shown.`}>
+    <Panel
+      id="nominations"
+      title="Nominations"
+      hint={`${rows.length} shown.${namesAvailable ? '' : ' Names unavailable: DASHBOARD_DISCORD_TOKEN is not set.'}`}
+    >
       <div className="controls">
         <span>
           Show:{' '}

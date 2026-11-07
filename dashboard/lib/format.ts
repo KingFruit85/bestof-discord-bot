@@ -44,20 +44,6 @@ export function isRecent(postedAt: Date, nominatedAt: Date, windowDays = RECENT_
   return postedAt.getTime() - nominatedAt.getTime() < windowDays * DAY_MS;
 }
 
-/** Parses DASHBOARD_SERVER_NAMES. Anything malformed yields an empty map. */
-export function parseServerNames(json: string | undefined): Record<string, string> {
-  if (!json) return {};
-  try {
-    const parsed: unknown = JSON.parse(json);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    return Object.fromEntries(
-      Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
-    );
-  } catch {
-    return {};
-  }
-}
-
 export function serverName(guildId: string, names: Record<string, string>): string {
   return names[guildId] ?? guildId;
 }
