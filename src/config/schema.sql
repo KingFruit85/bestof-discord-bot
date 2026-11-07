@@ -49,3 +49,7 @@ CREATE TABLE IF NOT EXISTS schedule_history (
 
 CREATE INDEX IF NOT EXISTS idx_schedule_history_guild_id ON schedule_history(guild_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_history_posted_at ON schedule_history(posted_at);
+
+-- 'posted' or 'skipped' (message could not be fetched). Skips don't count
+-- toward the reset threshold. Added 2026-11-07; earlier rows read 'posted'.
+ALTER TABLE schedule_history ADD COLUMN IF NOT EXISTS status VARCHAR(12) NOT NULL DEFAULT 'posted';

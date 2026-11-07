@@ -106,3 +106,54 @@ test('gives up after maxAttempts when every candidate is dead', async () => {
   assert.equal(result, null);
   assert.equal(marked.length, 3);
 });
+
+function makeOrderedDeps(candidates: (FakeNomination | null)[], shouldReset: boolean) {
+  const queue = [...candidates];
+  const events: string[] = [];
+  return {
+    deps: {
+      shouldReset: async () => {
+        events.push('shouldReset');
+        return shouldReset;
+      },
+      getCandidate: async () => {
+        events.push('getCandidate');
+        return queue.shift() ?? null;
+      },
+      resetHistory: async () => {
+        events.push('reset');
+      },
+      fetchMessage: async (link: string) => ({ link }),
+      markUnpostable: async () => {},
+    },
+    events,
+  };
+}
+
+test('resets before picking when shouldReset says the cycle is nearly done', async () => {
+  const a = nom(1);
+  const { deps, events } = makeOrderedDeps([a], true);
+
+  const result = await pickPostableNomination(deps);
+
+  assert.equal(result?.nomination, a);
+  assert.deepEqual(events, ['shouldReset', 'reset', 'getCandidate']);
+});
+
+test('does not reset when shouldReset returns false', async () => {
+  const a = nom(1);
+  const { deps, events } = makeOrderedDeps([a], false);
+
+  await pickPostableNomination(deps);
+
+  assert.deepEqual(events, ['shouldReset', 'getCandidate']);
+});
+
+test('a threshold reset counts as the one reset, so exhaustion does not reset again', async () => {
+  const { deps, events } = makeOrderedDeps([null], true);
+
+  const result = await pickPostableNomination(deps);
+
+  assert.equal(result, null);
+  assert.deepEqual(events, ['shouldReset', 'reset', 'getCandidate']);
+});

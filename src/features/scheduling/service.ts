@@ -2,10 +2,12 @@ import { Client, TextChannel, EmbedBuilder, type Message } from 'discord.js';
 import {
   addNominationToHistory,
   clearScheduleHistory,
+  getCycleProgress,
   getRandomUnpostedNomination,
   getNominationsFromPreviousMonth,
 } from './queries.js';
 import { pickPostableNomination } from './picker.js';
+import { shouldStartNewCycle } from './cycle.js';
 import { EmbedHelper, GreetingHelper, MessageHelper } from '#shared';
 import { getGuildConfig, getNominationChannel } from '#guild-config';
 import { getVoteCountsForNomination } from '#voting';
@@ -27,6 +29,18 @@ export class SchedulingService {
     // Nominations whose original message is gone are recorded in history so
     // they stop being picked, and another candidate is tried immediately.
     const picked = await pickPostableNomination({
+      // Start a new cycle once most postable nominations have been posted, so
+      // the remaining pool isn't dominated by recent nominations.
+      shouldReset: async () => {
+        const progress = await getCycleProgress(guildId);
+        const reset = shouldStartNewCycle(progress);
+        if (reset) {
+          console.log(
+            `Guild ${guildId} has posted ${progress.posted} of ${progress.total - progress.skipped} postable nominations; starting a new cycle.`
+          );
+        }
+        return reset;
+      },
       getCandidate: () => getRandomUnpostedNomination(guildId),
       resetHistory: () => clearScheduleHistory(guildId),
       fetchMessage: (link) => MessageHelper.getMessageFromLink(this.client, link),
@@ -34,7 +48,7 @@ export class SchedulingService {
         console.log(
           `Nomination message ${link} could not be fetched (likely deleted); excluding it from future scheduled posts.`
         );
-        await addNominationToHistory(guildId, link);
+        await addNominationToHistory(guildId, link, 'skipped');
       },
     });
 

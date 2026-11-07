@@ -1,12 +1,16 @@
 import { type Nomination } from '../nominations/queries.js';
 import { type GuildConfig } from '#guild-config';
 import { query } from '#config';
+import { type CycleProgress } from './cycle.js';
+
+export type HistoryStatus = 'posted' | 'skipped';
 
 export interface ScheduleHistory {
   id: number;
   guild_id: string;
   message_link: string;
   posted_at: Date;
+  status: HistoryStatus;
 }
 
 export async function clearScheduleHistory(guildId: string): Promise<void> {
@@ -15,11 +19,12 @@ export async function clearScheduleHistory(guildId: string): Promise<void> {
 
 export async function addNominationToHistory(
   guildId: string,
-  messageLink: string
+  messageLink: string,
+  status: HistoryStatus = 'posted'
 ): Promise<ScheduleHistory> {
   const result = await query<ScheduleHistory>(
-    'INSERT INTO schedule_history (guild_id, message_link) VALUES ($1, $2) RETURNING *',
-    [guildId, messageLink]
+    'INSERT INTO schedule_history (guild_id, message_link, status) VALUES ($1, $2, $3) RETURNING *',
+    [guildId, messageLink, status]
   );
 
   if (result.rows.length === 0 || result.rows[0] == undefined) {
@@ -27,6 +32,26 @@ export async function addNominationToHistory(
   }
 
   return result.rows[0];
+}
+
+export async function getCycleProgress(guildId: string): Promise<CycleProgress> {
+  // History is matched on message_link, like getRandomUnpostedNomination.
+  // LATERAL takes one history row per nomination, in case a link was recorded twice.
+  const result = await query<CycleProgress>(
+    `SELECT count(*)::int AS total,
+       count(*) FILTER (WHERE h.status = 'posted')::int AS posted,
+       count(*) FILTER (WHERE h.status = 'skipped')::int AS skipped
+     FROM nominations n
+     LEFT JOIN LATERAL (
+       SELECT sh.status FROM schedule_history sh
+       WHERE sh.message_link = n.message_link
+       ORDER BY sh.posted_at DESC
+       LIMIT 1
+     ) h ON true
+     WHERE n.guild_id = $1`,
+    [guildId]
+  );
+  return result.rows[0] ?? { total: 0, posted: 0, skipped: 0 };
 }
 
 export async function getRandomUnpostedNomination(

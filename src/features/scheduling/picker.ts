@@ -7,6 +7,8 @@ export interface PickerDeps<T extends { message_link: string }, M> {
   fetchMessage: (messageLink: string) => Promise<M>;
   /** Record a nomination whose message is gone so it stops being picked */
   markUnpostable: (messageLink: string) => Promise<void>;
+  /** Whether the cycle is far enough along to start a new one before picking. Optional. */
+  shouldReset?: () => Promise<boolean>;
   maxAttempts?: number;
 }
 
@@ -15,6 +17,13 @@ export async function pickPostableNomination<T extends { message_link: string },
 ): Promise<{ nomination: T; message: M } | null> {
   const maxAttempts = deps.maxAttempts ?? 10;
   let hasReset = false;
+
+  // A threshold reset counts as this run's one reset, so an exhausted pool
+  // right afterwards can't trigger a second.
+  if (deps.shouldReset && (await deps.shouldReset())) {
+    await deps.resetHistory();
+    hasReset = true;
+  }
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let nomination = await deps.getCandidate();
