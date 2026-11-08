@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Best-Of Dashboard',
-  description: 'Read-only view of the best-of bot database',
+  title: 'nor(DEV): best-of',
+  description: 'Leaderboards, hall of fame, and stats from the nor(DEV): best-of bot',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

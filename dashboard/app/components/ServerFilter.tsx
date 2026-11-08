@@ -11,7 +11,8 @@ export function ServerFilter({ options, selected, current }: {
 }) {
   const items: { id: string | null; label: string }[] = [{ id: null, label: 'All servers' }, ...options];
   return (
-    <nav className="server-filter" aria-label="Server">
+    <nav className="tabs" aria-label="Server">
+      <span className="tabs-label">Server</span>
       {items.map((item) => (
         <a
           key={item.id ?? 'all'}

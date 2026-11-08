@@ -59,22 +59,18 @@ export function NominationListPanel({ rows, names, users, namesAvailable, showSe
       title="Nominations"
       hint={`${rows.length} shown.${namesAvailable ? '' : ' Names unavailable: DASHBOARD_DISCORD_TOKEN is not set.'}`}
     >
-      <div className="controls">
-        <span>
-          Show:{' '}
-          {STATUS_LINKS.map((link, i) => (
-            <span key={link.value}>
-              {i > 0 && ' · '}
-              <a
-                href={`${buildHref(current, { status: link.value === 'all' ? undefined : link.value })}#nominations`}
-                aria-current={status === link.value}
-              >
-                {link.label}
-              </a>
-            </span>
-          ))}
-        </span>
-      </div>
+      <nav className="tabs" aria-label="Show">
+        <span className="tabs-label">Show</span>
+        {STATUS_LINKS.map((link) => (
+          <a
+            key={link.value}
+            href={`${buildHref(current, { status: link.value === 'all' ? undefined : link.value })}#nominations`}
+            aria-current={status === link.value}
+          >
+            {link.label}
+          </a>
+        ))}
+      </nav>
       <SortableTable
         rows={rows}
         columns={columns}

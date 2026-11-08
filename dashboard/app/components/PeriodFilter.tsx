@@ -7,21 +7,17 @@ export function PeriodFilter({ period, current, anchor }: {
   anchor: string;
 }) {
   return (
-    <div className="controls">
-      <span>
-        Period:{' '}
-        {PERIODS.map((p, i) => (
-          <span key={p.value}>
-            {i > 0 && ' · '}
-            <a
-              href={`${buildHref(current, { period: p.value === 'all' ? undefined : p.value })}#${anchor}`}
-              aria-current={period === p.value}
-            >
-              {p.label}
-            </a>
-          </span>
-        ))}
-      </span>
-    </div>
+    <nav className="tabs" aria-label="Period">
+      <span className="tabs-label">Period</span>
+      {PERIODS.map((p) => (
+        <a
+          key={p.value}
+          href={`${buildHref(current, { period: p.value === 'all' ? undefined : p.value })}#${anchor}`}
+          aria-current={period === p.value}
+        >
+          {p.label}
+        </a>
+      ))}
+    </nav>
   );
 }

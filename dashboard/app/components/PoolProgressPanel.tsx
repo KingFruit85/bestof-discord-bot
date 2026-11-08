@@ -5,6 +5,7 @@ import { Panel } from './Panel';
 export function PoolProgressPanel({ rows, names }: { rows: PoolProgress[]; names: Record<string, string> }) {
   return (
     <Panel
+      id="rotation"
       title="Rotation progress"
       hint={`Share of postable nominations posted this cycle. The bot starts a new cycle at the dashed line (${RESET_THRESHOLD * 100}%). Skipped nominations, whose message could not be fetched, don't count.`}
     >

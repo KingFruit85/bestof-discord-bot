@@ -6,6 +6,7 @@ import { NOMINATIONS_SORT_PARAM, NominationListPanel } from './components/Nomina
 import { PoolProgressPanel } from './components/PoolProgressPanel';
 import { RECENT_SORT_PARAM, RecentPostsPanel } from './components/RecentPostsPanel';
 import { ServerFilter } from './components/ServerFilter';
+import { SiteFooter, SiteHeader } from './components/SiteHeader';
 import { SETTINGS_SORT_PARAM, SettingsPanel } from './components/SettingsPanel';
 import { VoteStatsPanel } from './components/VoteStatsPanel';
 import { firstParam, parsePeriod, parseStatus, periodDays, resolveScope, serverName, type SearchParamValue } from '../lib/format';
@@ -81,7 +82,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     console.error('Dashboard failed to load data:', error);
     return (
       <main>
-        <header className="top"><h1>Best-Of Dashboard</h1></header>
+        <SiteHeader />
         <ErrorPanel error={error} />
       </main>
     );
@@ -106,10 +107,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
   return (
     <main>
-      <header className="top">
-        <h1>Best-Of Dashboard</h1>
+      <SiteHeader>
         {options.length > 1 && <ServerFilter options={options} selected={scope.selected} current={current} />}
-      </header>
+      </SiteHeader>
       <LeaderboardsPanel
         mostNominated={data.mostNominated}
         fans={data.fans}
@@ -150,6 +150,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       />
       <VoteStatsPanel stats={data.voteStats} />
       <SettingsPanel rows={data.settings} names={names} sort={sorts[SETTINGS_SORT_PARAM]} current={current} />
+      <SiteFooter />
     </main>
   );
 }
