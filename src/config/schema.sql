@@ -14,6 +14,12 @@ CREATE INDEX IF NOT EXISTS idx_nominations_nomination_message_id ON nominations(
 
 ALTER TABLE nominations ADD COLUMN IF NOT EXISTS context_message_links TEXT[];
 
+-- Discord user ID of whoever wrote the nominated message. Added 2026-11-08;
+-- older rows were filled by `npm run backfill-authors`, and stay NULL where
+-- the message was already deleted.
+ALTER TABLE nominations ADD COLUMN IF NOT EXISTS author_id VARCHAR(20);
+CREATE INDEX IF NOT EXISTS idx_nominations_author_id ON nominations(author_id);
+
 -- Votes table
 CREATE TABLE IF NOT EXISTS votes (
     id SERIAL PRIMARY KEY,

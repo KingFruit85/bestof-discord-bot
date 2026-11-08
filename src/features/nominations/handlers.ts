@@ -149,7 +149,13 @@ async function createAndPostNomination(
   const messageLink = message.url;
   const contextMessageLinks = contextMessages.map((m) => m.url);
 
-  const result = await nominationService.addNomination(guildId, messageLink, nominator.id, contextMessageLinks);
+  const result = await nominationService.addNomination(
+    guildId,
+    messageLink,
+    nominator.id,
+    message.author.id,
+    contextMessageLinks
+  );
 
   if (result.error === 'ALREADY_NOMINATED') {
     if (!result.nomination) {

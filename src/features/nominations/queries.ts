@@ -5,6 +5,8 @@ export interface Nomination {
   guild_id: string;
   message_link: string;
   nominator: string;
+  /** Who wrote the nominated message; null if unknown (deleted before the backfill). */
+  author_id: string | null;
   nomination_message_id?: string | null;
   context_message_links: string[] | null;
   created_at: Date;
@@ -24,13 +26,14 @@ export async function insertNomination(
   guildId: string,
   messageLink: string,
   nominator: string,
+  authorId: string,
   contextMessageLinks: string[] = []
 ): Promise<Nomination> {
   const result = await query<Nomination>(
-    `INSERT INTO nominations (guild_id, message_link, nominator, context_message_links)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO nominations (guild_id, message_link, nominator, author_id, context_message_links)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [guildId, messageLink, nominator, contextMessageLinks]
+    [guildId, messageLink, nominator, authorId, contextMessageLinks]
   );
 
   if (result.rows.length === 0 || result.rows[0] == undefined) {

@@ -18,6 +18,7 @@ npm run type-check    # tsc --noEmit
 npm test              # node --import tsx --test "test/**/*.test.ts"
 npm run register       # tsx src/register-commands.ts — push slash/context-menu commands to Discord
 npm run init-db        # tsx src/config/init-db.ts — apply src/config/schema.sql
+npm run backfill-authors  # fill nominations.author_id from Discord (--dry-run to only look up); idempotent
 ```
 
 Run a single test file directly (the `test` script's glob is just a convenience wrapper):
@@ -64,6 +65,10 @@ Besides `InteractionCreate`, `index.ts` listens to `MessageReactionAdd`/`Message
 `Scheduler` (`features/scheduling/scheduler.ts`) polls every 5 minutes but only executes work between 08:00–10:00 server time, checking `guild_config.next_random_post` against `NOW()` (`getDueGuilds` in `scheduling/queries.ts`) for random posts, and the 1st-of-month for recaps (deduped via an in-memory `lastRecapCheck` timestamp — this resets on process restart, so a restart on the 1st can cause a duplicate recap post).
 
 Random-post selection is decoupled from Discord I/O via `pickPostableNomination` (`scheduling/picker.ts`), a dependency-injected picker: it pulls a random not-yet-posted nomination, tries to fetch the underlying Discord message, and if the message is gone (deleted), records it in `schedule_history` so it's excluded going forward and retries with the next candidate (up to `maxAttempts`, default 10). `schedule_history` records both outcomes via its `status` column (`'posted'` or `'skipped'`). A guild's history is cleared, starting a new cycle, in two cases. The first is before picking, when `shouldStartNewCycle` (`scheduling/cycle.ts`) sees at least `RESET_THRESHOLD` (90%) of postable nominations (total minus skipped) posted. This stops late-cycle pools being dominated by recent nominations. The second, as a fallback, is when the candidate pool is exhausted. Skipped rows are cleared on reset too. `markUnpostable` fires on *any* fetch failure, including transient ones, so skips are deliberately not permanent. The dashboard duplicates `RESET_THRESHOLD` in `dashboard/lib/format.ts`; keep the two in sync. This indirection is what makes `picker.ts` unit-testable without a live Discord client (see `test/picker.test.ts` for the faking pattern).
+
+### Nomination authors
+
+`nominations.author_id` records who wrote the nominated message, set from `message.author.id` in `createAndPostNomination`. Rows from before 2026-11-08 were filled by `src/scripts/backfill-authors.ts` (the loop itself is `nominations/backfill.ts`, unit-tested); four whose messages were already deleted stay NULL. Nominations imported from the old bot (before 2025-12-12) mostly have `nominator` equal to the author, so their real nominator is treated as unknown by the dashboard (`NOMINATOR_KNOWN_SINCE` in `dashboard/lib/queries.ts`).
 
 ### Context messages
 

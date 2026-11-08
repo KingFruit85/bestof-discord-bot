@@ -17,6 +17,7 @@ export class NominationService {
     guildId: string,
     messageLink: string,
     nominator: string,
+    authorId: string,
     contextMessageLinks: string[] = []
   ): Promise<AddNominationResult> {
     try {
@@ -24,6 +25,7 @@ export class NominationService {
         guildId,
         messageLink,
         nominator,
+        authorId,
         contextMessageLinks
       );
 
