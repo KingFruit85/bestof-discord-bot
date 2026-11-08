@@ -76,3 +76,44 @@ export function buildHref(
   const qs = params.toString();
   return qs ? `/?${qs}` : '/';
 }
+
+/** Time window for the leaderboards and hall of fame, kept in the URL as ?period=. */
+export type Period = '30d' | '12m' | 'all';
+
+export const PERIODS: readonly { value: Period; label: string; days: number | null }[] = [
+  { value: '30d', label: 'Last 30 days', days: 30 },
+  { value: '12m', label: 'Last 12 months', days: 365 },
+  { value: 'all', label: 'All time', days: null },
+];
+
+export function parsePeriod(value: SearchParamValue): Period {
+  const raw = firstParam(value);
+  return PERIODS.find((p) => p.value === raw)?.value ?? 'all';
+}
+
+/** Window length in days, or null for all time. */
+export function periodDays(period: Period): number | null {
+  return PERIODS.find((p) => p.value === period)?.days ?? null;
+}
+
+/**
+ * Servers the dashboard never shows: KFruit's server, the bot's dev/test
+ * server. Its nominations would skew the leaderboards in "All servers".
+ */
+export const HIDDEN_GUILD_IDS: readonly string[] = ['1054500338947858522'];
+
+export interface Scope {
+  /** The server picked in the filter, or null for all visible servers. */
+  selected: string | null;
+  /** Every server the filter may offer. */
+  visible: string[];
+  /** The servers the page's queries cover. */
+  guildIds: string[];
+}
+
+/** Which servers to show. A hidden or unknown ?guild= falls back to all visible servers. */
+export function resolveScope(requested: string | undefined, allGuildIds: readonly string[], hidden = HIDDEN_GUILD_IDS): Scope {
+  const visible = allGuildIds.filter((id) => !hidden.includes(id));
+  const selected = requested && visible.includes(requested) ? requested : null;
+  return { selected, visible, guildIds: selected ? [selected] : visible };
+}

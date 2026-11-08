@@ -35,7 +35,20 @@ export interface DiscordUser {
   id: string;
   username: string;
   global_name: string | null;
+  /** Avatar hash, or null for a default avatar. */
+  avatar: string | null;
+  /** '0' for users on the new username system. */
+  discriminator: string;
 }
+
+/** What the dashboard shows for a user. */
+export interface UserProfile {
+  name: string;
+  /** Discord CDN URL, loaded by the viewer's browser; costs no API allowance. */
+  avatar: string;
+}
+
+const CDN_BASE = 'https://cdn.discordapp.com';
 
 export interface DiscordGuild {
   id: string;
@@ -56,6 +69,18 @@ export class DiscordLookupError extends Error {
 
 export function displayName(user: Pick<DiscordUser, 'username' | 'global_name'>): string {
   return user.global_name?.trim() || user.username;
+}
+
+/** Small static avatar, or the default avatar Discord itself would show. */
+export function avatarUrl(user: Pick<DiscordUser, 'id' | 'avatar' | 'discriminator'>): string {
+  if (user.avatar) return `${CDN_BASE}/avatars/${user.id}/${user.avatar}.webp?size=64`;
+  const legacy = user.discriminator && user.discriminator !== '0';
+  const index = legacy ? Number(user.discriminator) % 5 : Number((BigInt(user.id) >> 22n) % 6n);
+  return `${CDN_BASE}/embed/avatars/${index}.png`;
+}
+
+export function userProfile(user: DiscordUser): UserProfile {
+  return { name: displayName(user), avatar: avatarUrl(user) };
 }
 
 /**
@@ -135,11 +160,11 @@ export async function mapWithConcurrency<T, R>(items: readonly T[], limit: numbe
  * Resolve IDs to names. IDs whose lookup returns null or throws are left out,
  * so callers fall back to showing the raw ID.
  */
-export async function resolveNames(
+export async function resolveNames<T>(
   ids: readonly string[],
   concurrency: number,
-  lookup: (id: string) => Promise<string | null>,
-): Promise<Record<string, string>> {
+  lookup: (id: string) => Promise<T | null>,
+): Promise<Record<string, T>> {
   const unique = [...new Set(ids)];
   const names = await mapWithConcurrency(unique, concurrency, async (id) => {
     try {
@@ -149,7 +174,7 @@ export async function resolveNames(
       return null;
     }
   });
-  const result: Record<string, string> = {};
+  const result: Record<string, T> = {};
   unique.forEach((id, i) => {
     const name = names[i];
     if (name) result[id] = name;

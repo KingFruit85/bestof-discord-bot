@@ -3,6 +3,8 @@ import { buildHref, formatDate, serverName, type StatusFilter } from '../../lib/
 import { JumpLink } from './JumpLink';
 import { Panel } from './Panel';
 import { SortableTable, type TableColumn } from './SortableTable';
+import type { UserProfile } from '../../lib/discord';
+import { UserName, userLabel } from './UserName';
 
 export const NOMINATIONS_SORT_PARAM = 'nsort';
 
@@ -11,11 +13,11 @@ const STATUS_LINKS: { value: StatusFilter; label: string }[] = [
   { value: 'pool', label: 'Still in pool' },
 ];
 
-export function NominationListPanel({ rows, names, userNames, namesAvailable, showServer, status, sort, current }: {
+export function NominationListPanel({ rows, names, users, namesAvailable, showServer, status, sort, current }: {
   rows: NominationRow[];
   names: Record<string, string>;
-  /** Nominator display names from Discord; missing IDs render raw. */
-  userNames: Record<string, string>;
+  /** Nominator names and avatars from Discord; missing IDs render raw. */
+  users: Record<string, UserProfile>;
   namesAvailable: boolean;
   showServer: boolean;
   status: StatusFilter;
@@ -30,13 +32,8 @@ export function NominationListPanel({ rows, names, userNames, namesAvailable, sh
     {
       key: 'nominator',
       label: 'Nominator',
-      value: (r) => userNames[r.nominator] ?? r.nominator,
-      render: (r) =>
-        userNames[r.nominator] ? (
-          <span title={r.nominator}>{userNames[r.nominator]}</span>
-        ) : (
-          <span className="muted">{r.nominator}</span>
-        ),
+      value: (r) => userLabel(r.nominator, users),
+      render: (r) => <UserName id={r.nominator} users={users} />,
     },
     { key: 'up', label: 'Up', value: (r) => r.up_votes, defaultDir: 'desc', numeric: true, render: (r) => r.up_votes },
     { key: 'down', label: 'Down', value: (r) => r.down_votes, defaultDir: 'desc', numeric: true, render: (r) => r.down_votes },

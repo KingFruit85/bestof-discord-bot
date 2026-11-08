@@ -1,6 +1,10 @@
 # Best-Of Dashboard
 
-A read-only view of the best-of bot's database: rotation progress, recent random posts, all nominations, voting stats, and server settings. It is a separate Next.js app and shares no code with the bot.
+A read-only view of the best-of bot's database: leaderboards (top nominators, top voters, best taste), a hall of fame, nominations per month, rotation progress, recent random posts, all nominations, voting stats, and server settings. It is a separate Next.js app and shares no code with the bot.
+
+Leaderboards and the hall of fame ignore nominators' automatic upvotes on their own nominations, and their period filter goes by when the nomination was made: vote timestamps only date from a December 2025 import, so they can't place older votes in time.
+
+Servers listed in `HIDDEN_GUILD_IDS` (`lib/format.ts`) are left out of every panel; it currently hides the bot's dev server. When only one server is visible, the server filter and Server columns are hidden too.
 
 ## Run locally
 

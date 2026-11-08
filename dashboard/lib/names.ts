@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache';
-import { createRateGate, displayName, fetchDiscord, resolveNames, type DiscordGuild, type DiscordUser } from './discord';
+import { createRateGate, fetchDiscord, resolveNames, userProfile, type DiscordGuild, type DiscordUser, type UserProfile } from './discord';
 
 // Names are cached per ID for a day: usernames change, so they are never
 // stored, but a day-old name is fine for this dashboard.
@@ -24,13 +24,14 @@ function token(): string {
 }
 
 // Only reached on a cache miss, so each log line is one real Discord request.
-const userName = unstable_cache(
-  async (id: string): Promise<string | null> => {
+// v2 caches { name, avatar } instead of just the name.
+const userLookup = unstable_cache(
+  async (id: string): Promise<UserProfile | null> => {
     console.info(`[discord] fetching user ${id}`);
     const user = await fetchDiscord<DiscordUser>(`/users/${id}`, { fetch, token: token(), gate: userGate });
-    return user ? displayName(user) : null;
+    return user ? userProfile(user) : null;
   },
-  ['discord-user-name-v1'],
+  ['discord-user-profile-v2'],
   { revalidate: ONE_DAY_SECONDS },
 );
 
@@ -45,7 +46,7 @@ const guildName = unstable_cache(
 );
 
 export interface ResolvedNames {
-  users: Record<string, string>;
+  users: Record<string, UserProfile>;
   guilds: Record<string, string>;
   /** False when no token is configured; the page then shows raw IDs. */
   available: boolean;
@@ -55,7 +56,7 @@ export interface ResolvedNames {
 export async function lookupNames(userIds: readonly string[], guildIds: readonly string[]): Promise<ResolvedNames> {
   if (!process.env.DASHBOARD_DISCORD_TOKEN) return { users: {}, guilds: {}, available: false };
   try {
-    const [users, guilds] = await Promise.all([resolveNames(userIds, 4, userName), resolveNames(guildIds, 2, guildName)]);
+    const [users, guilds] = await Promise.all([resolveNames(userIds, 4, userLookup), resolveNames(guildIds, 2, guildName)]);
     return { users, guilds, available: true };
   } catch (error) {
     console.error('Discord name lookup failed:', error);

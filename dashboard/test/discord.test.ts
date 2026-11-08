@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   createRateGate,
   DiscordLookupError,
+  avatarUrl,
   displayName,
+  userProfile,
   fetchDiscord,
   mapWithConcurrency,
   resolveNames,
@@ -36,6 +38,35 @@ test('displayName prefers the global display name', () => {
   assert.equal(displayName({ username: 'kingfruit', global_name: 'King Fruit' }), 'King Fruit');
   assert.equal(displayName({ username: 'kingfruit', global_name: null }), 'kingfruit');
   assert.equal(displayName({ username: 'kingfruit', global_name: '   ' }), 'kingfruit');
+});
+
+test('avatarUrl uses the custom avatar hash as a small static webp', () => {
+  assert.equal(
+    avatarUrl({ id: '80351110224678912', avatar: '8342729096ea3675442027381ff50dfe', discriminator: '0' }),
+    'https://cdn.discordapp.com/avatars/80351110224678912/8342729096ea3675442027381ff50dfe.webp?size=64',
+  );
+  // Animated avatars (a_ prefix) still get a static webp: the first frame.
+  assert.match(avatarUrl({ id: '1', avatar: 'a_abc', discriminator: '0' }), /\/avatars\/1\/a_abc\.webp\?size=64$/);
+});
+
+test('avatarUrl falls back to the default avatar Discord derives from the user', () => {
+  // New username system: (id >> 22) % 6.
+  assert.equal(
+    avatarUrl({ id: '80351110224678912', avatar: null, discriminator: '0' }),
+    `https://cdn.discordapp.com/embed/avatars/${Number((80351110224678912n >> 22n) % 6n)}.png`,
+  );
+  // Legacy discriminators: discriminator % 5.
+  assert.equal(
+    avatarUrl({ id: '80351110224678912', avatar: null, discriminator: '1337' }),
+    'https://cdn.discordapp.com/embed/avatars/2.png',
+  );
+});
+
+test('userProfile combines the display name and avatar', () => {
+  assert.deepEqual(
+    userProfile({ id: '1', username: 'kingfruit', global_name: 'King Fruit', avatar: 'abc', discriminator: '0' }),
+    { name: 'King Fruit', avatar: 'https://cdn.discordapp.com/avatars/1/abc.webp?size=64' },
+  );
 });
 
 test('fetchDiscord sends bot auth and returns the body on 200', async () => {

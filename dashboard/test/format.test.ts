@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {
   buildHref,
   firstParam,
+  parsePeriod,
+  resolveScope,
+  periodDays,
   formatAge,
   formatDate,
   formatDateTime,
@@ -73,4 +76,30 @@ test('buildHref merges overrides and drops empty values', () => {
   assert.equal(buildHref({}, {}), '/');
   assert.equal(buildHref({ guild: '1', sort: 'score' }, { status: 'pool' }), '/?guild=1&sort=score&status=pool');
   assert.equal(buildHref({ guild: '1', status: 'pool' }, { status: undefined }), '/?guild=1');
+});
+
+test('parsePeriod accepts the known periods and defaults to all time', () => {
+  assert.equal(parsePeriod('30d'), '30d');
+  assert.equal(parsePeriod(['12m', '30d']), '12m');
+  assert.equal(parsePeriod('all'), 'all');
+  assert.equal(parsePeriod(undefined), 'all');
+  assert.equal(parsePeriod('7d; drop table'), 'all');
+});
+
+test('periodDays gives the window length, or null for all time', () => {
+  assert.equal(periodDays('30d'), 30);
+  assert.equal(periodDays('12m'), 365);
+  assert.equal(periodDays('all'), null);
+});
+
+test('resolveScope drops hidden servers and narrows to a requested visible one', () => {
+  const all = ['a', 'hidden', 'b'];
+  assert.deepEqual(resolveScope(undefined, all, ['hidden']), { selected: null, visible: ['a', 'b'], guildIds: ['a', 'b'] });
+  assert.deepEqual(resolveScope('b', all, ['hidden']), { selected: 'b', visible: ['a', 'b'], guildIds: ['b'] });
+});
+
+test('resolveScope ignores a requested server that is hidden or unknown', () => {
+  const all = ['a', 'hidden', 'b'];
+  assert.deepEqual(resolveScope('hidden', all, ['hidden']), { selected: null, visible: ['a', 'b'], guildIds: ['a', 'b'] });
+  assert.deepEqual(resolveScope('nope', all, ['hidden']), { selected: null, visible: ['a', 'b'], guildIds: ['a', 'b'] });
 });
