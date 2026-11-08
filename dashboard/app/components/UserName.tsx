@@ -12,6 +12,20 @@ export function userLabel(id: string, users: Record<string, UserProfile>): strin
  * (they changed it within our day-long cache) shows a blank circle rather than
  * a broken-image icon: alt="" makes the browser draw nothing for a failed load.
  */
+/** Shown where the old bot's data doesn't say who nominated a message. */
+export function UnknownNominator() {
+  return (
+    <span className="muted" title="Nominated before December 2025: the old bot's data doesn't record who nominated it.">
+      unknown
+    </span>
+  );
+}
+
+/** Sort key for a nominator column; unknown nominators sort last (null). */
+export function nominatorLabel(row: { nominator: string; nominator_known: boolean }, users: Record<string, UserProfile>): string | null {
+  return row.nominator_known ? userLabel(row.nominator, users) : null;
+}
+
 export function UserName({ id, users }: { id: string; users: Record<string, UserProfile> }) {
   const user = users[id];
   if (!user) return <span className="muted">{id}</span>;

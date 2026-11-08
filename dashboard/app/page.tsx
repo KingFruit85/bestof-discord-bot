@@ -12,6 +12,8 @@ import { firstParam, parsePeriod, parseStatus, periodDays, resolveScope, serverN
 import { lookupNames } from '../lib/names';
 import {
   getBestTaste,
+  getBiggestFans,
+  getMostNominated,
   getGuildIds,
   getGuildSettings,
   getHallOfFame,
@@ -30,11 +32,13 @@ async function loadData(requestedGuild: string | undefined, status: ReturnType<t
   // Hidden servers are dropped here, before any other query runs.
   const scope = resolveScope(requestedGuild, await getGuildIds());
   const guildIds = scope.guildIds;
-  const [nominators, voters, taste, hallOfFame, monthly, pool, recent, nominations, voteStats, settings] =
+  const [mostNominated, nominators, voters, taste, fans, hallOfFame, monthly, pool, recent, nominations, voteStats, settings] =
     await Promise.all([
+      getMostNominated(guildIds, days),
       getTopNominators(guildIds, days),
       getTopVoters(guildIds, days),
       getBestTaste(guildIds, days),
+      getBiggestFans(guildIds, days),
       getHallOfFame(guildIds, days),
       getMonthlyNominations(guildIds),
       getPoolProgress(guildIds),
@@ -44,7 +48,7 @@ async function loadData(requestedGuild: string | undefined, status: ReturnType<t
       getVoteStats(guildIds),
       getGuildSettings(guildIds),
     ]);
-  return { scope, nominators, voters, taste, hallOfFame, monthly, pool, recent, nominations, voteStats, settings };
+  return { scope, mostNominated, nominators, voters, taste, fans, hallOfFame, monthly, pool, recent, nominations, voteStats, settings };
 }
 
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, SearchParamValue>> }) {
@@ -85,15 +89,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
   // Live Discord names, cached a day per ID. Never throws; misses show raw IDs.
   // Leaderboard IDs go first so they win any lookups the rate gate allows.
-  const userIds = new Set([
-    ...[data.nominators, data.voters, data.taste].flat().map((r) => r.user_id),
-    ...data.hallOfFame.map((r) => r.nominator),
-    ...data.nominations.map((n) => n.nominator),
+  const userIds = new Set<string | null | undefined>([
+    ...[data.mostNominated, data.nominators, data.voters, data.taste, data.fans].flat().flatMap((r) => [r.user_id, r.fan_id]),
+    ...data.hallOfFame.flatMap((r) => [r.author_id, r.nominator_known ? r.nominator : null]),
+    ...data.nominations.flatMap((n) => [n.author_id, n.nominator_known ? n.nominator : null]),
   ]);
   const { scope } = data;
   // Links carry the server actually shown, not a hidden or unknown one from the URL.
   current.guild = scope.selected ?? undefined;
-  const resolved = await lookupNames([...userIds], scope.visible);
+  const resolved = await lookupNames([...userIds].filter((id): id is string => Boolean(id)), scope.visible);
   const names = resolved.guilds;
 
   // With one visible server there is nothing to pick between or label.
@@ -107,6 +111,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         {options.length > 1 && <ServerFilter options={options} selected={scope.selected} current={current} />}
       </header>
       <LeaderboardsPanel
+        mostNominated={data.mostNominated}
+        fans={data.fans}
         nominators={data.nominators}
         voters={data.voters}
         taste={data.taste}

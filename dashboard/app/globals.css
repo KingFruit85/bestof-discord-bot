@@ -176,3 +176,5 @@ a { color: var(--accent); }
 .avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .user-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .board-list .who { display: flex; min-width: 0; }
+.pair { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pair > .user { min-width: 0; }

@@ -28,6 +28,10 @@ export interface NominationRow {
   guild_id: string;
   message_link: string;
   nominator: string;
+  /** False for nominations from before NOMINATOR_KNOWN_SINCE; see NOMINATOR_KNOWN. */
+  nominator_known: boolean;
+  /** Who wrote the nominated message; null if it was deleted before the backfill. */
+  author_id: string | null;
   created_at: Date;
   up_votes: number;
   down_votes: number;
@@ -50,6 +54,15 @@ export interface GuildSettings {
   enable_monthly_recap: boolean | null;
   nomination_channel: string | null;
 }
+
+/**
+ * When the current bot started recording nominators. Nominations before this
+ * were imported from the old bot, and 94% of them have nominator = author:
+ * the old data seems to hold the author there, so their real nominator is
+ * treated as unknown. (Unconfirmed; drop the filter if that turns out wrong.)
+ */
+export const NOMINATOR_KNOWN_SINCE = new Date('2025-12-12T00:00:00Z');
+const NOMINATOR_KNOWN = `(n.created_at >= '2025-12-12')`;
 
 const GUILDS_CTE = `guilds AS (SELECT guild_id FROM guild_config UNION SELECT guild_id FROM nominations)`;
 
@@ -116,7 +129,8 @@ export function getNominations(opts: {
   // vote, which the FILTERs below naturally exclude.
   return query<NominationRow>(
     `WITH tallied AS (
-       SELECT n.id, n.guild_id, n.message_link, n.nominator, n.created_at,
+       SELECT n.id, n.guild_id, n.message_link, n.nominator, n.author_id, n.created_at,
+         ${NOMINATOR_KNOWN} AS nominator_known,
          count(*) FILTER (WHERE v.vote_value = 1)::int AS up_votes,
          count(*) FILTER (WHERE v.vote_value = -1)::int AS down_votes,
          ${LATEST_STATUS} AS history_status
@@ -160,9 +174,12 @@ export function getGuildSettings(guildIds: readonly string[]): Promise<GuildSett
 
 // ---- Leaderboards, hall of fame, activity -------------------------------
 //
-// Two quirks of the data shape these queries:
+// Three quirks of the data shape these queries:
 // - Nominators automatically upvote their own nomination, so "votes" here
-//   means votes from anyone else (OTHERS_VOTE).
+//   means votes from anyone but the nominator or the message's author
+//   (OTHERS_VOTE).
+// - Nominators are only known since NOMINATOR_KNOWN_SINCE, so nominator-based
+//   boards only count nominations from then on.
 // - Vote created_at is not real history: votes were imported in Dec 2025.
 //   Periods therefore filter on when the *nomination* was made.
 //
@@ -172,11 +189,13 @@ export function getGuildSettings(guildIds: readonly string[]): Promise<GuildSett
 const IN_GUILD = `n.guild_id = ANY($1::text[])`;
 // Timestamps are stored as UTC without a time zone.
 const IN_PERIOD = `($2::int IS NULL OR n.created_at >= (now() AT TIME ZONE 'UTC') - make_interval(days => $2::int))`;
-const OTHERS_VOTE = `v.vote_value <> 0 AND v.voter_id <> n.nominator`;
+const OTHERS_VOTE = `v.vote_value <> 0 AND v.voter_id <> n.nominator AND v.voter_id IS DISTINCT FROM n.author_id`;
 const OTHERS_SCORE = `COALESCE(sum(v.vote_value) FILTER (WHERE ${OTHERS_VOTE}), 0)`;
 
 export interface RankedUser {
   user_id: string;
+  /** Biggest fans only: who nominated user_id's messages. */
+  fan_id?: string;
   /** Competition rank: tied users share a rank. */
   rank: number;
   value: number;
@@ -189,8 +208,10 @@ export interface HallOfFameRow {
   guild_id: string;
   message_link: string;
   nominator: string;
+  nominator_known: boolean;
+  author_id: string | null;
   created_at: Date;
-  /** Net votes from everyone except the nominator. */
+  /** Net votes from everyone except the nominator and the author. */
   score: number;
   rank: number;
 }
@@ -203,7 +224,7 @@ export function getTopNominators(guildIds: readonly string[], days: number | nul
     `SELECT n.nominator AS user_id, count(*)::int AS value,
        rank() OVER (ORDER BY count(*) DESC)::int AS rank
      FROM nominations n
-     WHERE ${IN_GUILD} AND ${IN_PERIOD}
+     WHERE ${IN_GUILD} AND ${IN_PERIOD} AND ${NOMINATOR_KNOWN}
      GROUP BY n.nominator
      ORDER BY value DESC, user_id
      LIMIT $3`,
@@ -236,7 +257,7 @@ export function getBestTaste(
        SELECT n.nominator, ${OTHERS_SCORE} AS score
        FROM nominations n
        LEFT JOIN votes v ON v.nomination_id = n.id
-       WHERE ${IN_GUILD} AND ${IN_PERIOD}
+       WHERE ${IN_GUILD} AND ${IN_PERIOD} AND ${NOMINATOR_KNOWN}
        GROUP BY n.id
      )
      SELECT nominator AS user_id, round(avg(score), 1)::float8 AS value, count(*)::int AS nominations,
@@ -252,7 +273,8 @@ export function getBestTaste(
 
 export function getHallOfFame(guildIds: readonly string[], days: number | null, limit = 10): Promise<HallOfFameRow[]> {
   return query<HallOfFameRow>(
-    `SELECT n.id, n.guild_id, n.message_link, n.nominator, n.created_at,
+    `SELECT n.id, n.guild_id, n.message_link, n.nominator, n.author_id, n.created_at,
+       ${NOMINATOR_KNOWN} AS nominator_known,
        ${OTHERS_SCORE}::int AS score,
        rank() OVER (ORDER BY ${OTHERS_SCORE} DESC)::int AS rank
      FROM nominations n
@@ -260,6 +282,36 @@ export function getHallOfFame(guildIds: readonly string[], days: number | null, 
      WHERE ${IN_GUILD} AND ${IN_PERIOD}
      GROUP BY n.id
      ORDER BY score DESC, n.created_at DESC
+     LIMIT $3`,
+    [guildIds, days, limit],
+  );
+}
+
+/** Whose messages get nominated most. Uses all history: authors were backfilled from Discord. */
+export function getMostNominated(guildIds: readonly string[], days: number | null, limit = 10): Promise<RankedUser[]> {
+  return query<RankedUser>(
+    `SELECT n.author_id AS user_id, count(*)::int AS value,
+       rank() OVER (ORDER BY count(*) DESC)::int AS rank
+     FROM nominations n
+     WHERE ${IN_GUILD} AND ${IN_PERIOD} AND n.author_id IS NOT NULL
+     GROUP BY n.author_id
+     ORDER BY value DESC, user_id
+     LIMIT $3`,
+    [guildIds, days, limit],
+  );
+}
+
+/** Who keeps nominating whose messages: (nominator, author) pairs seen at least twice. */
+export function getBiggestFans(guildIds: readonly string[], days: number | null, limit = 10): Promise<RankedUser[]> {
+  return query<RankedUser>(
+    `SELECT n.nominator AS fan_id, n.author_id AS user_id, count(*)::int AS value,
+       rank() OVER (ORDER BY count(*) DESC)::int AS rank
+     FROM nominations n
+     WHERE ${IN_GUILD} AND ${IN_PERIOD} AND ${NOMINATOR_KNOWN}
+       AND n.author_id IS NOT NULL AND n.author_id <> n.nominator
+     GROUP BY n.nominator, n.author_id
+     HAVING count(*) >= 2
+     ORDER BY value DESC, fan_id, user_id
      LIMIT $3`,
     [guildIds, days, limit],
   );

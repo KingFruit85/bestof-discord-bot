@@ -4,7 +4,7 @@ import { JumpLink } from './JumpLink';
 import { Panel } from './Panel';
 import { SortableTable, type TableColumn } from './SortableTable';
 import type { UserProfile } from '../../lib/discord';
-import { UserName, userLabel } from './UserName';
+import { nominatorLabel, UnknownNominator, UserName, userLabel } from './UserName';
 
 export const NOMINATIONS_SORT_PARAM = 'nsort';
 
@@ -32,8 +32,14 @@ export function NominationListPanel({ rows, names, users, namesAvailable, showSe
     {
       key: 'nominator',
       label: 'Nominator',
-      value: (r) => userLabel(r.nominator, users),
-      render: (r) => <UserName id={r.nominator} users={users} />,
+      value: (r) => nominatorLabel(r, users),
+      render: (r) => (r.nominator_known ? <UserName id={r.nominator} users={users} /> : <UnknownNominator />),
+    },
+    {
+      key: 'author',
+      label: 'Author',
+      value: (r) => (r.author_id ? userLabel(r.author_id, users) : null),
+      render: (r) => (r.author_id ? <UserName id={r.author_id} users={users} /> : <span className="muted">deleted</span>),
     },
     { key: 'up', label: 'Up', value: (r) => r.up_votes, defaultDir: 'desc', numeric: true, render: (r) => r.up_votes },
     { key: 'down', label: 'Down', value: (r) => r.down_votes, defaultDir: 'desc', numeric: true, render: (r) => r.down_votes },
