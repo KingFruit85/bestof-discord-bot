@@ -2,7 +2,8 @@ import { ActivityPanel } from './components/ActivityPanel';
 import { ErrorPanel } from './components/ErrorPanel';
 import { HALL_SORT_PARAM, HallOfFamePanel } from './components/HallOfFamePanel';
 import { LeaderboardsPanel } from './components/LeaderboardsPanel';
-import { NOMINATIONS_SORT_PARAM, NominationListPanel } from './components/NominationListPanel';
+import { NOMINATIONS_PAGE_PARAM, NOMINATIONS_SORT_PARAM, NominationListPanel } from './components/NominationListPanel';
+import { parsePage } from '../lib/paginate';
 import { PoolProgressPanel } from './components/PoolProgressPanel';
 import { RECENT_SORT_PARAM, RecentPostsPanel } from './components/RecentPostsPanel';
 import { ServerFilter } from './components/ServerFilter';
@@ -57,6 +58,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const requestedGuild = firstParam(params.guild) || undefined;
   const status = parseStatus(params.status);
   const period = parsePeriod(params.period);
+  const nominationsPage = parsePage(firstParam(params[NOMINATIONS_PAGE_PARAM]));
 
   // Each table keeps its own column sort in the URL.
   const sorts = {
@@ -72,6 +74,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     guild: requestedGuild,
     status: status === 'all' ? undefined : status,
     period: period === 'all' ? undefined : period,
+    [NOMINATIONS_PAGE_PARAM]: nominationsPage === 1 ? undefined : String(nominationsPage),
     ...sorts,
   };
 
@@ -146,6 +149,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         users={resolved.users}
         namesAvailable={resolved.available}
         sort={sorts[NOMINATIONS_SORT_PARAM]}
+        page={nominationsPage}
         current={current}
       />
       <VoteStatsPanel stats={data.voteStats} />

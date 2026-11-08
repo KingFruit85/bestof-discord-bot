@@ -212,3 +212,11 @@ td .avatar { width: 20px; height: 20px; }
   a, .site-footer .spin { transition: none; }
   .site-footer .spin:hover { transform: none; }
 }
+
+/* ---- Pager ---- */
+.pager { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-top: 14px; font-size: 14px; }
+.pager-status { color: var(--text-tertiary); font-size: 13px; }
+.pager-links { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.pager a { background-image: none; font-weight: 600; color: var(--text-secondary); padding: 2px 2px; border-bottom: 4px solid transparent; }
+.pager a:hover { color: var(--accent); }
+.pager a[aria-current='page'] { color: var(--text-primary); border-bottom-color: var(--accent); }

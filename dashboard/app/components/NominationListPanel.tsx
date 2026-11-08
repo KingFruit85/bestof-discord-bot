@@ -7,13 +7,15 @@ import type { UserProfile } from '../../lib/discord';
 import { nominatorLabel, UnknownNominator, UserName, userLabel } from './UserName';
 
 export const NOMINATIONS_SORT_PARAM = 'nsort';
+export const NOMINATIONS_PAGE_PARAM = 'npage';
+const PAGE_SIZE = 25;
 
 const STATUS_LINKS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'pool', label: 'Still in pool' },
 ];
 
-export function NominationListPanel({ rows, names, users, namesAvailable, showServer, status, sort, current }: {
+export function NominationListPanel({ rows, names, users, namesAvailable, showServer, status, sort, page, current }: {
   rows: NominationRow[];
   names: Record<string, string>;
   /** Nominator names and avatars from Discord; missing IDs render raw. */
@@ -22,6 +24,7 @@ export function NominationListPanel({ rows, names, users, namesAvailable, showSe
   showServer: boolean;
   status: StatusFilter;
   sort: string | undefined;
+  page: number;
   current: Record<string, string | undefined>;
 }) {
   const columns: TableColumn<NominationRow>[] = [
@@ -57,14 +60,14 @@ export function NominationListPanel({ rows, names, users, namesAvailable, showSe
     <Panel
       id="nominations"
       title="Nominations"
-      hint={`${rows.length} shown.${namesAvailable ? '' : ' Names unavailable: DASHBOARD_DISCORD_TOKEN is not set.'}`}
+      hint={`${rows.length.toLocaleString('en-GB')} nominations, ${PAGE_SIZE} per page.${namesAvailable ? '' : ' Names unavailable: DASHBOARD_DISCORD_TOKEN is not set.'}`}
     >
       <nav className="tabs" aria-label="Show">
         <span className="tabs-label">Show</span>
         {STATUS_LINKS.map((link) => (
           <a
             key={link.value}
-            href={`${buildHref(current, { status: link.value === 'all' ? undefined : link.value })}#nominations`}
+            href={`${buildHref(current, { status: link.value === 'all' ? undefined : link.value, [NOMINATIONS_PAGE_PARAM]: undefined })}#nominations`}
             aria-current={status === link.value}
           >
             {link.label}
@@ -80,6 +83,7 @@ export function NominationListPanel({ rows, names, users, namesAvailable, showSe
         current={current}
         anchor="nominations"
         rowKey={(r) => r.id}
+        pagination={{ param: NOMINATIONS_PAGE_PARAM, page, pageSize: PAGE_SIZE }}
       />
     </Panel>
   );
