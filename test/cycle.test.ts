@@ -1,9 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RESET_THRESHOLD, shouldStartNewCycle } from '../src/features/scheduling/cycle.js';
+import { MIN_AGE_DAYS, RESET_THRESHOLD, shouldStartNewCycle } from '../src/features/scheduling/cycle.js';
 
 test('the default threshold is 90%', () => {
   assert.equal(RESET_THRESHOLD, 0.9);
+});
+
+test('the minimum age is 30 days', () => {
+  assert.equal(MIN_AGE_DAYS, 30);
 });
 
 test('does not reset below the threshold', () => {

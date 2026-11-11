@@ -1,5 +1,5 @@
 import type { PoolProgress } from '../../lib/queries';
-import { formatDate, formatPercent, fraction, RESET_THRESHOLD, serverName } from '../../lib/format';
+import { formatDate, formatPercent, fraction, MIN_AGE_DAYS, RESET_THRESHOLD, serverName } from '../../lib/format';
 import { Panel } from './Panel';
 
 export function PoolProgressPanel({ rows, names }: { rows: PoolProgress[]; names: Record<string, string> }) {
@@ -7,7 +7,7 @@ export function PoolProgressPanel({ rows, names }: { rows: PoolProgress[]; names
     <Panel
       id="rotation"
       title="Rotation progress"
-      hint={`Share of postable nominations posted this cycle. The bot starts a new cycle at the dashed line (${RESET_THRESHOLD * 100}%). Skipped nominations, whose message could not be fetched, don't count.`}
+      hint={`Share of postable nominations posted this cycle. The bot starts a new cycle at the dashed line (${RESET_THRESHOLD * 100}%). Skipped nominations, whose message could not be fetched, don't count. Nominations join the pool ${MIN_AGE_DAYS} days after nomination, so newer ones don't count either.`}
     >
       {rows.length === 0 && <p className="muted">No servers found.</p>}
       {rows.map((row) => {
@@ -18,7 +18,7 @@ export function PoolProgressPanel({ rows, names }: { rows: PoolProgress[]; names
             <strong>{serverName(row.guild_id, names)}</strong>
             <span className="num">
               {' · '}
-              {row.posted} posted · {row.skipped} skipped · {postable - row.posted} left ·{' '}
+              {row.posted} posted · {row.skipped} skipped · {postable - row.posted} left · {row.too_new} too new ·{' '}
               {formatPercent(share)}
             </span>
             <div className="bar" role="img" aria-label={`${formatPercent(share)} through the rotation`}>

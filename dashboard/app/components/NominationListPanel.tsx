@@ -15,6 +15,10 @@ const STATUS_LINKS: { value: StatusFilter; label: string }[] = [
   { value: 'pool', label: 'Still in pool' },
 ];
 
+function statusLabel(r: NominationRow): string {
+  return r.history_status ?? (r.too_new ? 'too new' : 'in pool');
+}
+
 export function NominationListPanel({ rows, names, users, namesAvailable, showServer, status, sort, page, current }: {
   rows: NominationRow[];
   names: Record<string, string>;
@@ -50,8 +54,11 @@ export function NominationListPanel({ rows, names, users, namesAvailable, showSe
     {
       key: 'status',
       label: 'Status',
-      value: (r) => r.history_status ?? 'in pool',
-      render: (r) => (r.history_status ? <span className="muted">{r.history_status}</span> : 'in pool'),
+      value: (r) => statusLabel(r),
+      render: (r) => {
+        const label = statusLabel(r);
+        return label === 'in pool' ? label : <span className="muted">{label}</span>;
+      },
     },
     { key: 'message', label: 'Message', render: (r) => <JumpLink href={r.message_link} /> },
   ];

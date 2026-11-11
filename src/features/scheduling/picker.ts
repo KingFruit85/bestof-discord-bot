@@ -1,5 +1,5 @@
 export interface PickerDeps<T extends { message_link: string }, M> {
-  /** Random nomination not yet in schedule_history, or null if pool exhausted */
+  /** Weighted-random nomination not yet in schedule_history, or null if pool exhausted */
   getCandidate: () => Promise<T | null>;
   /** Clear schedule_history so a new cycle can begin */
   resetHistory: () => Promise<void>;

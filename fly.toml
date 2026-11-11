@@ -8,6 +8,9 @@ primary_region = 'lhr'
 
 [build]
 
+[deploy]
+  release_command = 'node dist/config/init-db.js'
+
 [http_service]
   internal_port = 3000
   force_https = true
