@@ -10,6 +10,7 @@ export interface Nomination {
   nomination_message_id?: string | null;
   context_message_links: string[] | null;
   created_at: Date;
+  waiting_since: Date | null;
 }
 
 export interface NominationWithVotes extends Nomination {

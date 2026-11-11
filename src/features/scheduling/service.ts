@@ -3,11 +3,12 @@ import {
   addNominationToHistory,
   clearScheduleHistory,
   getCycleProgress,
-  getRandomUnpostedNomination,
+  getUnpostedNominations,
   getNominationsFromPreviousMonth,
 } from './queries.js';
 import { pickPostableNomination } from './picker.js';
 import { shouldStartNewCycle } from './cycle.js';
+import { MIN_AGE_DAYS, pickWeighted, waitWeight } from './weighting.js';
 import { EmbedHelper, GreetingHelper, MessageHelper } from '#shared';
 import { getGuildConfig, getNominationChannel } from '#guild-config';
 import { getVoteCountsForNomination } from '#voting';
@@ -32,7 +33,7 @@ export class SchedulingService {
       // Start a new cycle once most postable nominations have been posted, so
       // the remaining pool isn't dominated by recent nominations.
       shouldReset: async () => {
-        const progress = await getCycleProgress(guildId);
+        const progress = await getCycleProgress(guildId, MIN_AGE_DAYS);
         const reset = shouldStartNewCycle(progress);
         if (reset) {
           console.log(
@@ -41,7 +42,11 @@ export class SchedulingService {
         }
         return reset;
       },
-      getCandidate: () => getRandomUnpostedNomination(guildId),
+      getCandidate: async () => {
+        const pool = await getUnpostedNominations(guildId, MIN_AGE_DAYS);
+        const now = new Date();
+        return pickWeighted(pool, (n) => waitWeight(n, now));
+      },
       resetHistory: () => clearScheduleHistory(guildId),
       fetchMessage: (link) => MessageHelper.getMessageFromLink(this.client, link),
       markUnpostable: async (link) => {

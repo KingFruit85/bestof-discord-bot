@@ -1,9 +1,9 @@
 import { query } from './db';
-import type { SortOrder, StatusFilter } from './format';
+import { MIN_AGE_DAYS, type SortOrder, type StatusFilter } from './format';
 
 // Every query takes guildIds: the servers to cover, already stripped of
 // hidden ones (see resolveScope in format.ts). Never pass an unfiltered list.
-// History is matched on message_link, mirroring getRandomUnpostedNomination
+// History is matched on message_link, mirroring getUnpostedNominations
 // in the bot's scheduling/queries.ts.
 
 export type HistoryStatus = 'posted' | 'skipped';
@@ -13,6 +13,7 @@ export interface PoolProgress {
   total: number;
   posted: number;
   skipped: number;
+  too_new: number;
   cycle_started: Date | null;
 }
 
@@ -38,6 +39,7 @@ export interface NominationRow {
   net_score: number;
   /** Latest history status this cycle, or null if still in the pool. */
   history_status: HistoryStatus | null;
+  too_new: boolean;
 }
 
 export interface VoteStats {
@@ -78,6 +80,8 @@ const LATEST_STATUS = `(SELECT ${ROW_STATUS} FROM schedule_history sh
    ORDER BY sh.posted_at DESC
    LIMIT 1)`;
 
+const TOO_NEW = `(n.created_at > NOW() - $2::int * interval '1 day')`;
+
 export async function getGuildIds(): Promise<string[]> {
   const rows = await query<{ guild_id: string }>(`WITH ${GUILDS_CTE} SELECT guild_id FROM guilds ORDER BY guild_id`);
   return rows.map((row) => row.guild_id);
@@ -86,16 +90,17 @@ export async function getGuildIds(): Promise<string[]> {
 export function getPoolProgress(guildIds: readonly string[]): Promise<PoolProgress[]> {
   return query<PoolProgress>(
     `WITH ${GUILDS_CTE},
-     statuses AS (SELECT n.guild_id, ${LATEST_STATUS} AS status FROM nominations n)
+     statuses AS (SELECT n.guild_id, ${LATEST_STATUS} AS status, ${TOO_NEW} AS too_new FROM nominations n)
      SELECT g.guild_id,
-       (SELECT count(*) FROM statuses s WHERE s.guild_id = g.guild_id)::int AS total,
-       (SELECT count(*) FROM statuses s WHERE s.guild_id = g.guild_id AND s.status = 'posted')::int AS posted,
-       (SELECT count(*) FROM statuses s WHERE s.guild_id = g.guild_id AND s.status = 'skipped')::int AS skipped,
+       (SELECT count(*) FROM statuses s WHERE s.guild_id = g.guild_id AND NOT s.too_new)::int AS total,
+       (SELECT count(*) FROM statuses s WHERE s.guild_id = g.guild_id AND NOT s.too_new AND s.status = 'posted')::int AS posted,
+       (SELECT count(*) FROM statuses s WHERE s.guild_id = g.guild_id AND NOT s.too_new AND s.status = 'skipped')::int AS skipped,
+       (SELECT count(*) FROM statuses s WHERE s.guild_id = g.guild_id AND s.too_new)::int AS too_new,
        (SELECT min(sh.posted_at) FROM schedule_history sh WHERE sh.guild_id = g.guild_id) AS cycle_started
      FROM guilds g
      WHERE g.guild_id = ANY($1::text[])
      ORDER BY g.guild_id`,
-    [guildIds],
+    [guildIds, MIN_AGE_DAYS],
   );
 }
 
@@ -133,7 +138,8 @@ export function getNominations(opts: {
          ${NOMINATOR_KNOWN} AS nominator_known,
          count(*) FILTER (WHERE v.vote_value = 1)::int AS up_votes,
          count(*) FILTER (WHERE v.vote_value = -1)::int AS down_votes,
-         ${LATEST_STATUS} AS history_status
+         ${LATEST_STATUS} AS history_status,
+         ${TOO_NEW} AS too_new
        FROM nominations n
        LEFT JOIN votes v ON v.nomination_id = n.id
        WHERE n.guild_id = ANY($1::text[])
@@ -141,10 +147,10 @@ export function getNominations(opts: {
      )
      SELECT *, up_votes - down_votes AS net_score
      FROM tallied
-     WHERE NOT ($2::boolean AND history_status IS NOT NULL)
+     WHERE NOT ($3::boolean AND (history_status IS NOT NULL OR too_new))
      ORDER BY ${ORDER_BY[opts.sort]}
-     LIMIT $3`,
-    [opts.guildIds, opts.status === 'pool', opts.limit ?? null],
+     LIMIT $4`,
+    [opts.guildIds, MIN_AGE_DAYS, opts.status === 'pool', opts.limit ?? null],
   );
 }
 

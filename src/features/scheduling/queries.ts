@@ -14,7 +14,16 @@ export interface ScheduleHistory {
 }
 
 export async function clearScheduleHistory(guildId: string): Promise<void> {
-  await query('DELETE FROM schedule_history WHERE guild_id = $1', [guildId]);
+  await query(
+    `WITH cleared AS (
+       DELETE FROM schedule_history WHERE guild_id = $1 RETURNING message_link, status
+     )
+     UPDATE nominations n
+     SET waiting_since = NOW()
+     FROM cleared c
+     WHERE n.guild_id = $1 AND n.message_link = c.message_link AND c.status = 'posted'`,
+    [guildId]
+  );
 }
 
 export async function addNominationToHistory(
@@ -34,8 +43,8 @@ export async function addNominationToHistory(
   return result.rows[0];
 }
 
-export async function getCycleProgress(guildId: string): Promise<CycleProgress> {
-  // History is matched on message_link, like getRandomUnpostedNomination.
+export async function getCycleProgress(guildId: string, minAgeDays: number): Promise<CycleProgress> {
+  // History is matched on message_link, like getUnpostedNominations.
   // LATERAL takes one history row per nomination, in case a link was recorded twice.
   const result = await query<CycleProgress>(
     `SELECT count(*)::int AS total,
@@ -48,26 +57,22 @@ export async function getCycleProgress(guildId: string): Promise<CycleProgress> 
        ORDER BY sh.posted_at DESC
        LIMIT 1
      ) h ON true
-     WHERE n.guild_id = $1`,
-    [guildId]
+     WHERE n.guild_id = $1 AND n.created_at <= NOW() - $2::int * interval '1 day'`,
+    [guildId, minAgeDays]
   );
   return result.rows[0] ?? { total: 0, posted: 0, skipped: 0 };
 }
 
-export async function getRandomUnpostedNomination(
-  guildId: string
-): Promise<Nomination | null> {
+export async function getUnpostedNominations(guildId: string, minAgeDays: number): Promise<Nomination[]> {
   const result = await query<Nomination>(
     `SELECT n.*
      FROM nominations n
-     LEFT JOIN schedule_history sh ON n.message_link = sh.message_link
-     WHERE n.guild_id = $1 AND sh.id IS NULL
-     ORDER BY RANDOM()
-     LIMIT 1`,
-    [guildId]
+     WHERE n.guild_id = $1
+       AND n.created_at <= NOW() - $2::int * interval '1 day'
+       AND NOT EXISTS (SELECT 1 FROM schedule_history sh WHERE sh.message_link = n.message_link)`,
+    [guildId, minAgeDays]
   );
-
-  return result.rows[0] || null;
+  return result.rows;
 }
 
 

@@ -59,3 +59,19 @@ CREATE INDEX IF NOT EXISTS idx_schedule_history_posted_at ON schedule_history(po
 -- 'posted' or 'skipped' (message could not be fetched). Skips don't count
 -- toward the reset threshold. Added 2026-11-07; earlier rows read 'posted'.
 ALTER TABLE schedule_history ADD COLUMN IF NOT EXISTS status VARCHAR(12) NOT NULL DEFAULT 'posted';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = 'nominations' AND column_name = 'waiting_since'
+  ) THEN
+    ALTER TABLE nominations ADD COLUMN waiting_since TIMESTAMP;
+    UPDATE nominations n
+    SET waiting_since = GREATEST(
+      n.created_at + interval '30 days',
+      COALESCE((SELECT min(sh.posted_at) FROM schedule_history sh WHERE sh.guild_id = n.guild_id), NOW())
+    );
+  END IF;
+END
+$$;
