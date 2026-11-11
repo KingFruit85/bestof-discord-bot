@@ -3,7 +3,7 @@ import { MIN_AGE_DAYS, type SortOrder, type StatusFilter } from './format';
 
 // Every query takes guildIds: the servers to cover, already stripped of
 // hidden ones (see resolveScope in format.ts). Never pass an unfiltered list.
-// History is matched on message_link, mirroring getUnpostedNominations
+// History is matched on message_link, mirroring getRandomUnpostedNomination
 // in the bot's scheduling/queries.ts.
 
 export type HistoryStatus = 'posted' | 'skipped';
@@ -80,7 +80,7 @@ const LATEST_STATUS = `(SELECT ${ROW_STATUS} FROM schedule_history sh
    ORDER BY sh.posted_at DESC
    LIMIT 1)`;
 
-const TOO_NEW = `(n.created_at > NOW() - $2::int * interval '1 day')`;
+const TOO_NEW = `COALESCE(n.created_at > NOW() - interval '${MIN_AGE_DAYS} days', false)`;
 
 export async function getGuildIds(): Promise<string[]> {
   const rows = await query<{ guild_id: string }>(`WITH ${GUILDS_CTE} SELECT guild_id FROM guilds ORDER BY guild_id`);
@@ -100,7 +100,7 @@ export function getPoolProgress(guildIds: readonly string[]): Promise<PoolProgre
      FROM guilds g
      WHERE g.guild_id = ANY($1::text[])
      ORDER BY g.guild_id`,
-    [guildIds, MIN_AGE_DAYS],
+    [guildIds],
   );
 }
 
@@ -147,10 +147,10 @@ export function getNominations(opts: {
      )
      SELECT *, up_votes - down_votes AS net_score
      FROM tallied
-     WHERE NOT ($3::boolean AND (history_status IS NOT NULL OR too_new))
+     WHERE NOT ($2::boolean AND (history_status IS NOT NULL OR too_new))
      ORDER BY ${ORDER_BY[opts.sort]}
-     LIMIT $4`,
-    [opts.guildIds, MIN_AGE_DAYS, opts.status === 'pool', opts.limit ?? null],
+     LIMIT $3`,
+    [opts.guildIds, opts.status === 'pool', opts.limit ?? null],
   );
 }
 

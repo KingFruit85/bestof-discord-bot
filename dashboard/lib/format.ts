@@ -10,6 +10,7 @@ export const RECENT_WINDOW_DAYS = 90;
 /** Where the bot starts a new cycle. Keep in sync with RESET_THRESHOLD in src/features/scheduling/cycle.ts. */
 export const RESET_THRESHOLD = 0.9;
 
+/** Days before a nomination joins the pool. Keep in sync with MIN_AGE_DAYS in src/features/scheduling/cycle.ts. */
 export const MIN_AGE_DAYS = 30;
 
 export function firstParam(value: SearchParamValue): string | undefined {

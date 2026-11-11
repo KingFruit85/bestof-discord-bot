@@ -3,12 +3,11 @@ import {
   addNominationToHistory,
   clearScheduleHistory,
   getCycleProgress,
-  getUnpostedNominations,
+  getRandomUnpostedNomination,
   getNominationsFromPreviousMonth,
 } from './queries.js';
 import { pickPostableNomination } from './picker.js';
-import { shouldStartNewCycle } from './cycle.js';
-import { MIN_AGE_DAYS, pickWeighted, waitWeight } from './weighting.js';
+import { MIN_AGE_DAYS, shouldStartNewCycle } from './cycle.js';
 import { EmbedHelper, GreetingHelper, MessageHelper } from '#shared';
 import { getGuildConfig, getNominationChannel } from '#guild-config';
 import { getVoteCountsForNomination } from '#voting';
@@ -42,12 +41,8 @@ export class SchedulingService {
         }
         return reset;
       },
-      getCandidate: async () => {
-        const pool = await getUnpostedNominations(guildId, MIN_AGE_DAYS);
-        const now = new Date();
-        return pickWeighted(pool, (n) => waitWeight(n, now));
-      },
-      resetHistory: () => clearScheduleHistory(guildId),
+      getCandidate: () => getRandomUnpostedNomination(guildId, MIN_AGE_DAYS),
+      resetHistory: () => clearScheduleHistory(guildId, MIN_AGE_DAYS),
       fetchMessage: (link) => MessageHelper.getMessageFromLink(this.client, link),
       markUnpostable: async (link) => {
         console.log(

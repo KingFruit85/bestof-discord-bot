@@ -55,7 +55,10 @@ export function NominationListPanel({ rows, names, users, namesAvailable, showSe
       key: 'status',
       label: 'Status',
       value: (r) => statusLabel(r),
-      render: (r) => (r.history_status || r.too_new ? <span className="muted">{statusLabel(r)}</span> : 'in pool'),
+      render: (r) => {
+        const label = statusLabel(r);
+        return label === 'in pool' ? label : <span className="muted">{label}</span>;
+      },
     },
     { key: 'message', label: 'Message', render: (r) => <JumpLink href={r.message_link} /> },
   ];

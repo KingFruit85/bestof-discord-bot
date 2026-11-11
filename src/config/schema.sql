@@ -69,7 +69,7 @@ BEGIN
     ALTER TABLE nominations ADD COLUMN waiting_since TIMESTAMP;
     UPDATE nominations n
     SET waiting_since = GREATEST(
-      n.created_at + interval '30 days',
+      n.created_at + interval '30 days',  -- MIN_AGE_DAYS in src/features/scheduling/cycle.ts
       COALESCE((SELECT min(sh.posted_at) FROM schedule_history sh WHERE sh.guild_id = n.guild_id), NOW())
     );
   END IF;
